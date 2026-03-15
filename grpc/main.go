@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net"
-	"os"
 
 	"traefix/proto"
 
@@ -25,11 +25,17 @@ func (s *server) SayHello(ctx context.Context, req *proto.HelloRequest) (*proto.
 }
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: go run main.go <port>")
+	// --port 指定のみ受け付ける。
+	portFlag := flag.String("port", "", "listen port")
+	flag.Parse()
+
+	if *portFlag == "" {
+		fmt.Println("Usage: go run main.go --port <port>")
 		return
 	}
-	port = os.Args[1]
+
+	port = *portFlag
+
 	addr := ":" + port
 
 	lis, err := net.Listen("tcp", addr)
