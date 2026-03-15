@@ -12,7 +12,7 @@
 * microservice の並列開発
 * AI agent による複数 server 起動
 * devcontainer での single port forwarding
-* `git worktree` などによる複数ブランチ開発（将来対応）
+* `git worktree` を使った複数ブランチ開発
 
 ---
 
@@ -77,7 +77,7 @@ go install github.com/goropikari/devswitch@latest
 インストール後は次のように実行できます。
 
 ```bash
-devswitch proxy
+devswitch proxy start
 ```
 
 ---
@@ -103,10 +103,10 @@ export DEVSWITCH_TMPDIR=/tmp/devswitch
 ## 1. Proxy を起動
 
 ```bash
-devswitch proxy
+devswitch proxy start
 ```
 
-デフォルトでは daemon で起動します。停止には `devswitch proxy-stop` を使います。
+デフォルトでは daemon で起動します。停止には `devswitch proxy stop` を使います。
 
 ログファイルの場所は次で確認できます。
 
@@ -131,13 +131,13 @@ http://localhost:9000
 ```bash
 devswitch start-server \
   --port-env PORT \
-  npm run dev
+  <your-command>
 ```
 
 実際には
 
 ```
-PORT=42131 npm run dev
+PORT=42131 <your-command>
 ```
 
 のように実行されます。
@@ -151,13 +151,13 @@ PORT=42131 npm run dev
 ```bash
 devswitch start-server \
   --port-arg --port \
-  ./server
+  -- go run ./http/main.go
 ```
 
 実行されるコマンド
 
 ```
-./server --port 42131
+go run ./http/main.go --port 42131
 ```
 
 ---
@@ -169,8 +169,8 @@ gRPC サーバーは `--grpc` を指定します。
 ```bash
 devswitch start-server \
   --grpc \
-  --port-env PORT \
-  ./grpc-server
+  --port-arg --port \
+  -- go -C ./grpc run main.go
 ```
 
 Traefik では
@@ -183,7 +183,7 @@ h2c://localhost:<port>
 
 ## grpcurl サンプル
 
-proxy (`devswitch proxy`) と gRPC server 起動後、
+proxy (`devswitch proxy start`) と gRPC server 起動後、
 default port (`9000`) に対して grpcurl を実行できます。
 
 ### 利用可能な service 一覧
@@ -225,12 +225,14 @@ devswitch switch
 すると対話セレクタが開き、接続先 server を選択できます。
 
 ```
-42131
-42140
-42155
+branch=[main] port=42131 pid=12345
+branch=[feature/login] port=42140 pid=12360
+branch=[fix/api] port=42155 pid=12388
 ```
 
 選択すると **Traefik routing が即座に更新**されます。
+
+`devswitch list` は `BRANCH PORT PID ACTIVE` の順で表示されます。
 
 ---
 

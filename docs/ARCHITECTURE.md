@@ -9,7 +9,7 @@ It is built around Traefik and a small controller CLI.
 
 ## High Level Flow
 
-1. Start proxy (`devswitch proxy`)
+1. Start proxy (`devswitch proxy start`)
 2. Start one or more app servers (`devswitch start-server ...`)
 3. Update active target (`devswitch switch`)
 4. Stop targets or cleanup (`devswitch stop`, `devswitch cleanup`)
@@ -31,11 +31,11 @@ Responsibilities:
 
 Key commands:
 
-- `proxy`: start Traefik (daemon by default)
-- `proxy-stop`: stop Traefik
+- `proxy start`: start Traefik (daemon by default)
+- `proxy stop`: stop Traefik
 - `info`: show proxy log path
 - `start-server`: launch app and register it
-- `list`: show registered servers
+- `list`: show registered servers (`BRANCH PORT PID ACTIVE`)
 - `switch`: pick active server via interactive selector (`promptui`)
 - `stop`: stop selected server
 - `cleanup`: stop all registered servers and reset state
@@ -52,7 +52,7 @@ All state files are under runtime tmp dir (`DEVSWITCH_TMPDIR` override possible)
 
 - `devswitch_static.yml`: Traefik static config
 - `devswitch_dynamic.yml`: Traefik dynamic routing config
-- `devswitch_servers`: server registry (`port pid`)
+- `devswitch_servers`: server registry (`port pid branch`)
 - `devswitch_active`: active target port
 - `proxy.pid`: daemon proxy PID
 - `proxy.log`: proxy logs
@@ -60,8 +60,9 @@ All state files are under runtime tmp dir (`DEVSWITCH_TMPDIR` override possible)
 ## Runtime Directory Strategy
 
 - If `DEVSWITCH_TMPDIR` is set, use it directly.
-- Otherwise use workspace-based state file in `/tmp`.
-- `proxy` command refreshes runtime dir for each proxy lifecycle.
+- Otherwise use a state file in `/tmp` keyed by git common dir.
+- This key is shared across git worktrees in the same repository.
+- `proxy start` refreshes runtime dir for each proxy lifecycle.
 - Other commands read the same state to stay in sync.
 
 ## Start-Server Safety
@@ -78,7 +79,7 @@ When `--grpc` is passed to `start-server`:
 
 ## Data and Control Sequence
 
-1. `proxy` writes config files and starts Traefik.
+1. `proxy start` writes config files and starts Traefik.
 2. `start-server` starts app on free port, stores registry, updates dynamic config.
 3. `switch` rewrites dynamic config to another registered backend.
 4. Traefik serves traffic to newly selected backend immediately.

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -43,8 +44,13 @@ var startCmd = &cobra.Command{
 			return err
 		}
 
+		runCommand := strings.Join(append([]string{command}, commandArgs...), " ")
+		if portEnv != "" {
+			runCommand = fmt.Sprintf("%s=%d %s", portEnv, port, runCommand)
+		}
+
 		// 起動後にレジストリ・ルーティング・active を更新する。
-		warnErr("register started server", addServer(Server{Port: port, PID: c.Process.Pid, Branch: currentBranchName()}))
+		warnErr("register started server", addServer(Server{Port: port, PID: c.Process.Pid, Branch: currentBranchName(), GRPC: grpcMode, Command: runCommand}))
 		warnErr("update dynamic config", writeDynamic(port, grpcMode))
 		setActive(port)
 

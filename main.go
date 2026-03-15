@@ -20,9 +20,11 @@ import (
 )
 
 type Server struct {
-	Port   int
-	PID    int
-	Branch string
+	Port    int
+	PID     int
+	Branch  string
+	GRPC    bool
+	Command string
 }
 
 // start-server の起動オプションを受け取るフラグ変数。
@@ -175,7 +177,19 @@ func loadServers() ([]Server, error) {
 	var servers []Server
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		meta := line
+		command := ""
+		if parts := strings.SplitN(line, "\t", 2); len(parts) == 2 {
+			meta = strings.TrimSpace(parts[0])
+			command = strings.TrimSpace(parts[1])
+		}
+
+		fields := strings.Fields(meta)
 		if len(fields) < 2 {
 			continue
 		}
@@ -183,14 +197,20 @@ func loadServers() ([]Server, error) {
 		port, _ := strconv.Atoi(fields[0])
 		pid, _ := strconv.Atoi(fields[1])
 		branch := "-"
+		grpc := false
 		if len(fields) >= 3 {
 			branch = fields[2]
+		}
+		if len(fields) >= 4 {
+			if parsed, err := strconv.ParseBool(fields[3]); err == nil {
+				grpc = parsed
+			}
 		}
 		if !pidAlive(pid) {
 			continue
 		}
 
-		servers = append(servers, Server{Port: port, PID: pid, Branch: branch})
+		servers = append(servers, Server{Port: port, PID: pid, Branch: branch, GRPC: grpc, Command: command})
 	}
 
 	_ = saveRegistry(servers)
@@ -211,7 +231,11 @@ func saveRegistry(servers []Server) error {
 	defer f.Close()
 
 	for _, s := range servers {
-		_, _ = fmt.Fprintf(f, "%d %d %s\n", s.Port, s.PID, s.Branch)
+		_, _ = fmt.Fprintf(f, "%d %d %s %t", s.Port, s.PID, s.Branch, s.GRPC)
+		if strings.TrimSpace(s.Command) != "" {
+			_, _ = fmt.Fprintf(f, "\t%s", s.Command)
+		}
+		_, _ = fmt.Fprintln(f)
 	}
 
 	return os.Rename(tmp, registryFilePath())
@@ -283,7 +307,11 @@ func selectServer(servers []Server) (Server, error) {
 
 	items := make([]string, 0, len(servers))
 	for _, s := range servers {
-		items = append(items, fmt.Sprintf("branch=%s port=%d pid=%d", formatBranchLabel(s.Branch), s.Port, s.PID))
+		runCmd := s.Command
+		if strings.TrimSpace(runCmd) == "" {
+			runCmd = "-"
+		}
+		items = append(items, fmt.Sprintf("branch=%s port=%d pid=%d cmd=%s", formatBranchLabel(s.Branch), s.Port, s.PID, runCmd))
 	}
 
 	prompt := promptui.Select{

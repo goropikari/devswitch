@@ -13,14 +13,18 @@ var listCmd = &cobra.Command{
 		servers, _ := loadServers()
 		active := currentActive()
 
-		fmt.Printf("%-17s %-8s %-8s %-6s\n", "BRANCH", "PORT", "PID", "ACTIVE")
+		fmt.Printf("%-17s %-8s %-8s %-6s %s\n", "BRANCH", "PORT", "PID", "ACTIVE", "CMD")
 		for _, s := range servers {
 			branch := formatBranchLabel(s.Branch)
+			runCmd := s.Command
+			if runCmd == "" {
+				runCmd = "-"
+			}
 			mark := ""
 			if s.Port == active {
 				mark = "*"
 			}
-			fmt.Printf("%-17s %-8d %-8d %-6s\n", branch, s.Port, s.PID, mark)
+			fmt.Printf("%-17s %-8d %-8d %-6s %s\n", branch, s.Port, s.PID, mark, runCmd)
 		}
 		return nil
 	},

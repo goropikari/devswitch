@@ -27,9 +27,10 @@ active dev server
 What devswitch does:
 
 - Starts app servers on free ports
-- Stores started server metadata (port + PID)
+- Stores started server metadata (branch + port + PID)
 - Updates Traefik dynamic config
 - Switches active target with an interactive selector (`promptui`)
+- Shares runtime state across git worktrees in the same repository
 
 ## Requirements
 
@@ -77,15 +78,15 @@ export DEVSWITCH_TMPDIR=/tmp/devswitch
 ### 1) Start proxy
 
 ```bash
-devswitch proxy
+devswitch proxy start
 ```
 
-`proxy` runs in daemon mode by default.
+`proxy start` runs in daemon mode by default.
 
 Stop proxy:
 
 ```bash
-devswitch proxy-stop
+devswitch proxy stop
 ```
 
 Show proxy log path:
@@ -102,20 +103,12 @@ http://localhost:9000
 
 ### 2) Start app server
 
-Pass port via env var:
-
-```bash
-devswitch start-server \
-  --port-env PORT \
-  npm run dev
-```
-
-Pass port via flag:
+Run the HTTP sample (`http/main.go`) with `--port`:
 
 ```bash
 devswitch start-server \
   --port-arg --port \
-  ./server
+  -- go run ./http/main.go
 ```
 
 ### 3) gRPC mode
@@ -125,8 +118,8 @@ Start a gRPC backend with `--grpc`:
 ```bash
 devswitch start-server \
   --grpc \
-  --port-env PORT \
-  ./grpc-server
+  --port-arg --port \
+  -- go -C ./grpc run main.go
 ```
 
 Traefik backend scheme is switched to `h2c`.
@@ -152,6 +145,8 @@ devswitch list
 devswitch stop
 devswitch cleanup
 ```
+
+`list` shows servers in `BRANCH PORT PID ACTIVE` order.
 
 ## Runtime Files
 

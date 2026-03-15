@@ -10,7 +10,7 @@ Traefik と小さな制御用 CLI を中心に構成されています。
 
 ## 全体フロー
 
-1. proxy を起動（`devswitch proxy`）
+1. proxy を起動（`devswitch proxy start`）
 2. 1つ以上のアプリサーバーを起動（`devswitch start-server ...`）
 3. 接続先を切り替え（`devswitch switch`）
 4. 停止またはクリーンアップ（`devswitch stop`, `devswitch cleanup`）
@@ -32,11 +32,11 @@ Traefik と小さな制御用 CLI を中心に構成されています。
 
 主要コマンド:
 
-- `proxy`: Traefik を起動（デフォルトは daemon）
-- `proxy-stop`: Traefik を停止
+- `proxy start`: Traefik を起動（デフォルトは daemon）
+- `proxy stop`: Traefik を停止
 - `info`: proxy の port とログパスを表示
 - `start-server`: アプリを起動して登録
-- `list`: 登録済みサーバーを表示
+- `list`: 登録済みサーバーを表示（`BRANCH PORT PID ACTIVE`）
 - `switch`: 対話セレクタ（`promptui`）でアクティブサーバーを選択
 - `stop`: 選択したサーバーを停止
 - `cleanup`: 登録済みサーバーを全停止し状態を初期化
@@ -54,7 +54,7 @@ Traefik と小さな制御用 CLI を中心に構成されています。
 
 - `devswitch_static.yml`: Traefik static config
 - `devswitch_dynamic.yml`: Traefik dynamic routing config
-- `devswitch_servers`: サーバーレジストリ（`port pid`）
+- `devswitch_servers`: サーバーレジストリ（`port pid branch`）
 - `devswitch_active`: アクティブ対象 port
 - `proxy.pid`: daemon proxy の PID
 - `proxy.log`: proxy ログ
@@ -63,7 +63,8 @@ Traefik と小さな制御用 CLI を中心に構成されています。
 
 - `DEVSWITCH_TMPDIR` が設定されている場合はその値を使用
 - 未設定の場合は `/tmp` 配下の state file を使って実行時ディレクトリを決定
-- `proxy` コマンド実行時に、proxy ライフサイクル用の実行時ディレクトリを確定
+- state file のキーは git common dir 基準で、同一リポジトリの worktree 間で共有
+- `proxy start` 実行時に、proxy ライフサイクル用の実行時ディレクトリを確定
 - ほかのコマンドは同じ state を読み取り、同一ディレクトリを共有
 
 ## Start-Server の安全性
@@ -80,7 +81,7 @@ proxy が listen していない場合、コマンドはエラーを返して終
 
 ## データ/制御シーケンス
 
-1. `proxy` が設定ファイルを書き込み、Traefik を起動
+1. `proxy start` が設定ファイルを書き込み、Traefik を起動
 2. `start-server` が空き port でアプリを起動し、レジストリと dynamic config を更新
 3. `switch` が dynamic config を別 backend に書き換え
 4. Traefik が新しい backend へ即時にルーティング
