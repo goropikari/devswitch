@@ -91,10 +91,34 @@ var appStopCmd = &cobra.Command{
 			return err
 		}
 
+		wasActive := s.Port == currentActive()
+
 		if err := exec.Command("fuser", "-k", fmt.Sprintf("%d/tcp", s.Port)).Run(); err != nil {
 			warnErr(fmt.Sprintf("kill tcp port=%d", s.Port), err)
 		}
 		fmt.Println("stopped", s.Port)
+
+		// 停止した app が active だった場合、残っている別の app へ自動的に切り替える。
+		if wasActive {
+			remaining, _ := loadServers()
+			// fuser -k 直後はまだ PID が生存していることがあるため、停止したポートを除外する。
+			var others []Server
+			for _, r := range remaining {
+				if r.Port != s.Port {
+					others = append(others, r)
+				}
+			}
+			if len(others) > 0 {
+				next := others[len(others)-1]
+				warnErr("update proxy route", updateProxyRoute(next.Port, next.GRPC))
+				setActive(next.Port)
+				fmt.Printf("switched active to port %d (branch %s)\n", next.Port, formatBranchLabel(next.Branch))
+			} else {
+				setActive(0)
+				fmt.Println("no remaining app processes")
+			}
+		}
+
 		return nil
 	},
 }

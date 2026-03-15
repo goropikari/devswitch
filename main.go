@@ -254,6 +254,10 @@ func addServer(s Server) error {
 
 // 現在アクティブなポートを書き込む。
 func setActive(port int) {
+	if port == 0 {
+		_ = os.Remove(activeFilePath())
+		return
+	}
 	_ = ensureTmpDir()
 	_ = os.WriteFile(activeFilePath(), []byte(strconv.Itoa(port)), 0644)
 }
