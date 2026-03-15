@@ -72,11 +72,19 @@ func buildProxyEnv() provider.Env {
 	}
 }
 
-func newReverseProxy(name string) (provider.ReverseProxy, error) {
-	return provider.New(name, buildProxyEnv())
+func newReverseProxy(name string) (ReverseProxy, error) {
+	p, err := provider.New(name, buildProxyEnv())
+	if err != nil {
+		return nil, err
+	}
+	rp, ok := p.(ReverseProxy)
+	if !ok {
+		return nil, os.ErrInvalid
+	}
+	return rp, nil
 }
 
-func currentReverseProxy() (provider.ReverseProxy, error) {
+func currentReverseProxy() (ReverseProxy, error) {
 	return newReverseProxy(resolveCurrentProxyProviderName())
 }
 

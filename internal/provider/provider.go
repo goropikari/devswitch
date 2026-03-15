@@ -26,15 +26,6 @@ type StartResult struct {
 	LogPath string
 }
 
-// ReverseProxy は reverse proxy 実装を差し替えるための抽象化。
-type ReverseProxy interface {
-	Name() string
-	Start(opts StartOptions) (StartResult, error)
-	Stop() error
-	UpdateRoute(port int, grpc bool) error
-	LogPath() string
-}
-
 // Env はプロバイダーが必要とする状態・関数を保持する。
 type Env struct {
 	BindHost         string // バインドするホスト (例: "0.0.0.0", "127.0.0.1")
@@ -54,7 +45,7 @@ type Env struct {
 	WarnErr          func(action string, err error)
 }
 
-func New(name string, env Env) (ReverseProxy, error) {
+func New(name string, env Env) (any, error) {
 	switch strings.ToLower(strings.TrimSpace(name)) {
 	case Traefik:
 		return traefikProxy{env: env}, nil
