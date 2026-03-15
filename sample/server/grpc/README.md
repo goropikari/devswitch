@@ -44,5 +44,6 @@ grpcurl -plaintext localhost:50051 hello.HelloService/SayHello
 - `hello.HelloService/SayHello` : サービス/メソッド
 
 ## 補足
+
 - `protoc` や `grpcurl` のインストールが必要です。
 - Goモジュールは grpc ディレクトリ内で管理しています。

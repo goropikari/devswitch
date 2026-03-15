@@ -38,11 +38,11 @@ What devswitch does:
 
 Per-provider extra requirements:
 
-| Provider | Requirement |
-| --- | --- |
-| `native` (default) | none (pure Go) |
-| `traefik` | [Traefik binary](https://doc.traefik.io/traefik/getting-started/install-traefik/) |
-| `socat` | socat command |
+| Provider           | Requirement                                                                       |
+| ------------------ | --------------------------------------------------------------------------------- |
+| `native` (default) | none (pure Go)                                                                    |
+| `traefik`          | [Traefik binary](https://doc.traefik.io/traefik/getting-started/install-traefik/) |
+| `socat`            | socat command                                                                     |
 
 ## Installation
 
@@ -60,12 +60,12 @@ go install github.com/goropikari/devswitch/cmd/devswitch@latest
 
 ## Environment Variables
 
-| Variable | Description | Default | Affected commands |
-| --- | --- | --- | --- |
-| `DEVSWITCH_PORT` | proxy listen port | `9000` | proxy start, app start, info |
-| `DEVSWITCH_BIND_HOST` | proxy bind host | `localhost` | proxy start, info |
-| `DEVSWITCH_PROXY_PROVIDER` | proxy provider (`native`\|`traefik`\|`socat`) | `native` | proxy start, info |
-| `DEVSWITCH_TMPDIR` | directory for state/log/config files | auto-generated under `/tmp` | all commands |
+| Variable                   | Description                                   | Default                     | Affected commands            |
+| -------------------------- | --------------------------------------------- | --------------------------- | ---------------------------- |
+| `DEVSWITCH_PORT`           | proxy listen port                             | `9000`                      | proxy start, app start, info |
+| `DEVSWITCH_BIND_HOST`      | proxy bind host                               | `localhost`                 | proxy start, info            |
+| `DEVSWITCH_PROXY_PROVIDER` | proxy provider (`native`\|`traefik`\|`socat`) | `native`                    | proxy start, info            |
+| `DEVSWITCH_TMPDIR`         | directory for state/log/config files          | auto-generated under `/tmp` | all commands                 |
 
 ## Usage
 
@@ -151,8 +151,8 @@ devswitch switch
 An interactive selector opens. Entries show label, branch, port, and command:
 
 ```
-  happy_turing           branch=[main]          port=54321 pid=12345 cmd=...
-  nervous_hopper         branch=[feature/login]  port=54322 pid=12346 cmd=...
+happy_turing           branch=[main]          port=54321 pid=12345 cmd=...
+nervous_hopper         branch=[feature/login]  port=54322 pid=12346 cmd=...
 ```
 
 ### 4) List running servers
@@ -185,6 +185,14 @@ devswitch cleanup
 
 Terminates all registered app processes and resets registry and active state.
 
+### 7) Show version
+
+```bash
+devswitch version
+# or
+devswitch --version
+```
+
 ## Devcontainer
 
 Only one port needs to be forwarded:
@@ -205,15 +213,16 @@ devswitch proxy start -b 0.0.0.0
 
 All files are created under `<tmpdir>`:
 
-| Path | Purpose |
-| --- | --- |
-| `devswitch_static.yml` | Traefik static config |
-| `devswitch_dynamic.yml` | routing config |
-| `devswitch_servers` | server registry |
-| `devswitch_active` | active target port |
-| `proxy.pid` | proxy daemon PID |
-| `proxy.log` | proxy log (daemon mode only) |
-| `proxy.provider` | current provider name |
+| Path                    | Purpose                                      |
+| ----------------------- | -------------------------------------------- |
+| `devswitch_static.yml`  | Traefik static config                        |
+| `devswitch_dynamic.yml` | routing config                               |
+| `devswitch_servers`     | server registry                              |
+| `devswitch_active`      | active target port                           |
+| `proxy.pid`             | proxy daemon PID                             |
+| `proxy.log`             | proxy log (daemon mode only)                 |
+| `proxy.port`            | proxy listen port persisted by `proxy start` |
+| `proxy.provider`        | current provider name                        |
 
 ## AI Notice
 

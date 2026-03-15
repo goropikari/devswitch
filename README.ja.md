@@ -9,10 +9,10 @@
 
 主な用途：
 
-* microservice の並列開発
-* AI agent による複数 server 起動
-* devcontainer での single port forwarding
-* `git worktree` を使った複数ブランチ開発
+- microservice の並列開発
+- AI agent による複数 server 起動
+- devcontainer での single port forwarding
+- `git worktree` を使った複数ブランチ開発
 
 ---
 
@@ -33,11 +33,11 @@ active dev server
 
 `devswitch` の役割
 
-* 開発サーバーを **空いているポートで起動**
-* 起動したサーバーを **label・branch・port・PID とともに registry に記録**
-* **proxy のルーティングを更新**
-* 接続先サーバーを **対話セレクタ（promptui）で切り替え**
-* `git worktree` 間で状態を共有
+- 開発サーバーを **空いているポートで起動**
+- 起動したサーバーを **label・branch・port・PID とともに registry に記録**
+- **proxy のルーティングを更新**
+- 接続先サーバーを **対話セレクタ（promptui）で切り替え**
+- `git worktree` 間で状態を共有
 
 ---
 
@@ -45,16 +45,16 @@ active dev server
 
 必要なツール
 
-* Go 1.26+
-* 対話可能なターミナル（TTY）
+- Go 1.26+
+- 対話可能なターミナル（TTY）
 
 プロバイダーごとの追加要件
 
-| プロバイダー | 追加要件 |
-| ------------ | -------- |
-| `native`（デフォルト） | なし（純 Go 実装） |
-| `traefik` | [Traefik バイナリ](https://doc.traefik.io/traefik/getting-started/install-traefik/) |
-| `socat` | socat コマンド |
+| プロバイダー           | 追加要件                                                                            |
+| ---------------------- | ----------------------------------------------------------------------------------- |
+| `native`（デフォルト） | なし（純 Go 実装）                                                                  |
+| `traefik`              | [Traefik バイナリ](https://doc.traefik.io/traefik/getting-started/install-traefik/) |
+| `socat`                | socat コマンド                                                                      |
 
 ---
 
@@ -76,12 +76,12 @@ go install github.com/goropikari/devswitch/cmd/devswitch@latest
 
 # Environment Variables
 
-| 変数 | 説明 | default | 影響するコマンド |
-| ---- | ---- | ------- | ---------------- |
-| `DEVSWITCH_PORT` | proxy listen port | `9000` | proxy start, app start, info |
-| `DEVSWITCH_BIND_HOST` | proxy bind host | `localhost` | proxy start, info |
-| `DEVSWITCH_PROXY_PROVIDER` | proxy プロバイダー (`native`\|`traefik`\|`socat`) | `native` | proxy start, info |
-| `DEVSWITCH_TMPDIR` | 状態・ログ・設定ファイルの保存先 | 自動生成 (`/tmp/...`) | 全コマンド |
+| 変数                       | 説明                                              | default               | 影響するコマンド             |
+| -------------------------- | ------------------------------------------------- | --------------------- | ---------------------------- |
+| `DEVSWITCH_PORT`           | proxy listen port                                 | `9000`                | proxy start, app start, info |
+| `DEVSWITCH_BIND_HOST`      | proxy bind host                                   | `localhost`           | proxy start, info            |
+| `DEVSWITCH_PROXY_PROVIDER` | proxy プロバイダー (`native`\|`traefik`\|`socat`) | `native`              | proxy start, info            |
+| `DEVSWITCH_TMPDIR`         | 状態・ログ・設定ファイルの保存先                  | 自動生成 (`/tmp/...`) | 全コマンド                   |
 
 ---
 
@@ -177,8 +177,8 @@ devswitch switch
 対話セレクタが開き、ラベル・ブランチ・ポートで選択できます。
 
 ```
-  happy_turing           branch=[main]          port=54321 pid=12345 cmd=...
-  nervous_hopper         branch=[feature/login]  port=54322 pid=12346 cmd=...
+happy_turing           branch=[main]          port=54321 pid=12345 cmd=...
+nervous_hopper         branch=[feature/login]  port=54322 pid=12346 cmd=...
 ```
 
 ---
@@ -219,6 +219,16 @@ devswitch cleanup
 
 ---
 
+## 7. バージョン確認
+
+```bash
+devswitch version
+# または
+devswitch --version
+```
+
+---
+
 # Devcontainer Usage
 
 devcontainer では **1つの port だけ forward**すれば十分です。
@@ -239,15 +249,16 @@ devswitch proxy start -b 0.0.0.0
 
 # Runtime Files
 
-| path | 用途 |
-| ---- | ---- |
-| `<tmpdir>/devswitch_static.yml` | Traefik static config |
-| `<tmpdir>/devswitch_dynamic.yml` | routing config |
-| `<tmpdir>/devswitch_servers` | server registry |
-| `<tmpdir>/devswitch_active` | アクティブ対象 port |
-| `<tmpdir>/proxy.pid` | proxy daemon PID |
-| `<tmpdir>/proxy.log` | proxy ログ（daemon 時のみ） |
-| `<tmpdir>/proxy.provider` | 使用中のプロバイダー名 |
+| path                             | 用途                                 |
+| -------------------------------- | ------------------------------------ |
+| `<tmpdir>/devswitch_static.yml`  | Traefik static config                |
+| `<tmpdir>/devswitch_dynamic.yml` | routing config                       |
+| `<tmpdir>/devswitch_servers`     | server registry                      |
+| `<tmpdir>/devswitch_active`      | アクティブ対象 port                  |
+| `<tmpdir>/proxy.pid`             | proxy daemon PID                     |
+| `<tmpdir>/proxy.log`             | proxy ログ（daemon 時のみ）          |
+| `<tmpdir>/proxy.port`            | `proxy start` で確定した listen port |
+| `<tmpdir>/proxy.provider`        | 使用中のプロバイダー名               |
 
 ---
 
