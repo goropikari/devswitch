@@ -371,6 +371,7 @@ func main() {
 	rootCmd.AddCommand(infoCmd)
 	rootCmd.AddCommand(appCmd)
 	rootCmd.AddCommand(listCmd)
+	listCmd.Flags().BoolVar(&listJSON, "json", false, "output as JSON")
 	rootCmd.AddCommand(switchCmd)
 	rootCmd.AddCommand(cleanupCmd)
 
