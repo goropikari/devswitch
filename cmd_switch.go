@@ -18,7 +18,10 @@ var switchCmd = &cobra.Command{
 
 		warnErr("update dynamic config", writeDynamic(s.Port, false))
 		setActive(s.Port)
-		fmt.Println("switched to", s.Port)
+		fmt.Println("Switched to:")
+		fmt.Printf("Branch: %s\n", formatBranchLabel(s.Branch))
+		fmt.Printf("Port: %d\n", s.Port)
+		fmt.Printf("PID: %d\n", s.PID)
 		return nil
 	},
 }

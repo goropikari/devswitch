@@ -15,14 +15,14 @@ import (
 	"text/template"
 	"time"
 
-	git "github.com/go-git/go-git/v5"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
 
 type Server struct {
-	Port int
-	PID  int
+	Port   int
+	PID    int
+	Branch string
 }
 
 // start-server の起動オプションを受け取るフラグ変数。
@@ -57,17 +57,12 @@ func devswitchDir() string {
 }
 
 // state file 名に使うキーを返す。
-// Git ルートが取れる場合は Git ルート基準、取れなければ実行ディレクトリ基準にする。
+// Git common dir が取れる場合はそれを基準にし、取れなければ実行ディレクトリ基準にする。
 func workspaceKey() string {
 	base := "unknown"
 
-	if repo, err := git.PlainOpenWithOptions(".", &git.PlainOpenOptions{DetectDotGit: true}); err == nil {
-		if wt, wtErr := repo.Worktree(); wtErr == nil {
-			root := strings.TrimSpace(wt.Filesystem.Root())
-			if root != "" {
-				base = filepath.Clean(root)
-			}
-		}
+	if commonDir, err := gitCommonDir(); err == nil {
+		base = filepath.Clean(commonDir)
 	} else if wd, wdErr := os.Getwd(); wdErr == nil {
 		base = filepath.Clean(wd)
 	}
@@ -181,17 +176,21 @@ func loadServers() ([]Server, error) {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		fields := strings.Fields(scanner.Text())
-		if len(fields) != 2 {
+		if len(fields) < 2 {
 			continue
 		}
 
 		port, _ := strconv.Atoi(fields[0])
 		pid, _ := strconv.Atoi(fields[1])
+		branch := "-"
+		if len(fields) >= 3 {
+			branch = fields[2]
+		}
 		if !pidAlive(pid) {
 			continue
 		}
 
-		servers = append(servers, Server{Port: port, PID: pid})
+		servers = append(servers, Server{Port: port, PID: pid, Branch: branch})
 	}
 
 	_ = saveRegistry(servers)
@@ -212,7 +211,7 @@ func saveRegistry(servers []Server) error {
 	defer f.Close()
 
 	for _, s := range servers {
-		_, _ = fmt.Fprintf(f, "%d %d\n", s.Port, s.PID)
+		_, _ = fmt.Fprintf(f, "%d %d %s\n", s.Port, s.PID, s.Branch)
 	}
 
 	return os.Rename(tmp, registryFilePath())
@@ -284,7 +283,7 @@ func selectServer(servers []Server) (Server, error) {
 
 	items := make([]string, 0, len(servers))
 	for _, s := range servers {
-		items = append(items, fmt.Sprintf("port=%d pid=%d", s.Port, s.PID))
+		items = append(items, fmt.Sprintf("branch=%s port=%d pid=%d", formatBranchLabel(s.Branch), s.Port, s.PID))
 	}
 
 	prompt := promptui.Select{
@@ -339,10 +338,11 @@ func main() {
 	startCmd.Flags().StringVar(&portEnv, "port-env", "", "")
 	startCmd.Flags().StringVar(&portArg, "port-arg", "", "")
 	startCmd.Flags().BoolVar(&grpcMode, "grpc", false, "")
-	proxyCmd.Flags().BoolVar(&proxyDaemon, "daemon", true, "")
+	proxyStartCmd.Flags().BoolVar(&proxyDaemon, "daemon", true, "")
+	proxyCmd.AddCommand(proxyStartCmd)
+	proxyCmd.AddCommand(proxyStopCmd)
 
 	rootCmd.AddCommand(proxyCmd)
-	rootCmd.AddCommand(proxyStopCmd)
 	rootCmd.AddCommand(infoCmd)
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(listCmd)

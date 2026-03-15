@@ -44,7 +44,7 @@ var startCmd = &cobra.Command{
 		}
 
 		// 起動後にレジストリ・ルーティング・active を更新する。
-		warnErr("register started server", addServer(Server{Port: port, PID: c.Process.Pid}))
+		warnErr("register started server", addServer(Server{Port: port, PID: c.Process.Pid, Branch: currentBranchName()}))
 		warnErr("update dynamic config", writeDynamic(port, grpcMode))
 		setActive(port)
 

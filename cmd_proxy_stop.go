@@ -12,7 +12,7 @@ import (
 )
 
 var proxyStopCmd = &cobra.Command{
-	Use:   "proxy-stop",
+	Use:   "stop",
 	Short: "stop proxy daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		portTarget := fmt.Sprintf("%s/tcp", listenPort())

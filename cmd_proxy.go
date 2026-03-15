@@ -13,7 +13,13 @@ import (
 )
 
 var proxyCmd = &cobra.Command{
-	Use: "proxy",
+	Use:   "proxy",
+	Short: "manage proxy",
+}
+
+var proxyStartCmd = &cobra.Command{
+	Use:   "start",
+	Short: "start proxy daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// proxy 起動ごとに tmp dir を新規確定する。
 		if os.Getenv("DEVSWITCH_TMPDIR") == "" {
