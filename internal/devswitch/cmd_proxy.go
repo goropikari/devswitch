@@ -20,9 +20,12 @@ var proxyStartCmd = &cobra.Command{
 	Short: "start the reverse proxy daemon",
 	Long: `Start the reverse proxy in daemon mode (default) or foreground.
 
-The proxy listens on DEVSWITCH_PORT (default 9000) and forwards traffic
-to the currently active app process. The provider can be selected with
---provider or DEVSWITCH_PROXY_PROVIDER:
+Listen port priority (highest to lowest):
+  1. --port flag
+  2. DEVSWITCH_PORT environment variable
+  3. default (9000)
+
+The provider can be selected with --provider or DEVSWITCH_PROXY_PROVIDER:
 
   native   pure-Go HTTP/1.1 + gRPC reverse proxy (default, no extra binary needed)
   traefik  Traefik-based proxy  (requires traefik binary)

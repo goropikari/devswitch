@@ -96,6 +96,12 @@ devswitch proxy start
 デフォルトでは daemon で起動します。
 
 ```bash
+# listen port を変更する（デフォルト: 9000）
+# --port フラグは DEVSWITCH_PORT 環境変数より優先される
+devswitch proxy start --port 8080
+# または
+DEVSWITCH_PORT=8080 devswitch proxy start
+
 # バインドホストを指定（devcontainer → ホストからアクセスする場合）
 devswitch proxy start -b 0.0.0.0
 

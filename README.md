@@ -78,6 +78,12 @@ devswitch proxy start
 `proxy start` runs in daemon mode by default.
 
 ```bash
+# change listen port (default: 9000)
+# --port flag takes precedence over DEVSWITCH_PORT
+devswitch proxy start --port 8080
+# or
+DEVSWITCH_PORT=8080 devswitch proxy start
+
 # bind to all interfaces (for devcontainer → host access)
 devswitch proxy start -b 0.0.0.0
 
