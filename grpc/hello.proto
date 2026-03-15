@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package hello;
+
+option go_package = "traefix/proto";
+
+service HelloService {
+  rpc SayHello (HelloRequest) returns (HelloReply) {}
+}
+
+message HelloRequest {
+}
+
+message HelloReply {
+  string message = 1;
+}

@@ -1,0 +1,11 @@
+http:
+  routers:
+    api:
+      rule: "PathPrefix(`/`)"
+      service: api-service
+
+  services:
+    api-service:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:3002"
