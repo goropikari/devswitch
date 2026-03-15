@@ -209,6 +209,55 @@ DEVSWITCH_BIND_HOST=0.0.0.0 devswitch proxy start
 devswitch proxy start -b 0.0.0.0
 ```
 
+## Claude Code + Git Worktree Integration
+
+[Claude Code](https://code.claude.com/docs/en/common-workflows) can run multiple AI agents in parallel using `git worktree` — each agent works in an isolated directory on its own branch. devswitch is designed to complement this workflow.
+
+### Why they work together
+
+Claude Code runs each AI agent in its own worktree — a separate directory on a separate branch.
+devswitch treats all worktrees of the same repository as a single environment:
+one proxy, one server registry, shared by every worktree.
+
+This means:
+
+- Start the proxy **once** from any worktree
+- Each worktree (or Claude Code agent) starts its own app server independently
+- Use `devswitch switch` from any worktree to route traffic to the target branch
+
+### Typical workflow
+
+```bash
+# 1. Start proxy once (from main or any worktree)
+devswitch proxy start
+
+# 2. Launch a Claude Code worktree session for a feature
+claude --worktree feature-auth
+# Claude works inside .claude/worktrees/feature-auth/
+
+# 3. Inside each worktree, start the app as usual
+devswitch app start --label feature-auth --port-env PORT -- go run ./cmd/myapp
+
+# 4. Open another session in parallel
+claude --worktree bugfix-123
+devswitch app start --label bugfix-123 --port-env PORT -- go run ./cmd/myapp
+
+# 5. Switch traffic to any running server from any worktree
+devswitch switch
+
+# 6. List all running servers across all worktrees
+devswitch list
+```
+
+### .gitignore
+
+Add the following to `.gitignore` to prevent Claude Code's worktree directories
+from appearing as untracked files:
+
+```
+.claude/worktrees/
+```
+
 ## Runtime Files
 
 All files are created under `<tmpdir>`:

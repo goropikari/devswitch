@@ -247,6 +247,58 @@ devswitch proxy start -b 0.0.0.0
 
 ---
 
+# Claude Code + Git Worktree 連携
+
+[Claude Code](https://code.claude.com/docs/ja/common-workflows) は `git worktree` を使って複数の AI エージェントを並列実行できます。
+各エージェントは独自のブランチ・ディレクトリで作業します。devswitch はこのワークフローと組み合わせて使うことを想定して設計されています。
+
+## なぜ相性がいいか
+
+Claude Code は各エージェントをそれぞれ独立の worktree（独自のディレクトリ・ブランチ）で動かします。
+devswitch は同じリポジトリ内のすべての worktree を「同一の環境」として扱います。
+proxy もサーバーレジストリも全 worktree で共有されます。
+
+つまり:
+
+- proxy はどの worktree からでも **1 回だけ**起動すればよい
+- 各 worktree（または Claude Code エージェント）は独立してアプリを起動できる
+- `devswitch switch` でどの worktree からでもトラフィックを切り替えられる
+
+## 典型的なワークフロー
+
+```bash
+# 1. proxy を 1 回だけ起動（どの worktree からでも可）
+devswitch proxy start
+
+# 2. Claude Code の worktree セッションを起動
+claude --worktree feature-auth
+# → .claude/worktrees/feature-auth/ 内で作業
+
+# 3. 各 worktree 内で通常通りアプリを起動
+devswitch app start --label feature-auth --port-env PORT -- go run ./cmd/myapp
+
+# 4. 別のセッションを並列で開く
+claude --worktree bugfix-123
+devswitch app start --label bugfix-123 --port-env PORT -- go run ./cmd/myapp
+
+# 5. どの worktree からでもトラフィックを切り替え
+devswitch switch
+
+# 6. 全 worktree のサーバー一覧を確認
+devswitch list
+```
+
+## .gitignore
+
+Claude Code が作成する worktree ディレクトリを未追跡ファイルとして表示させないために
+`.gitignore` に以下を追加します:
+
+```
+.claude/worktrees/
+```
+
+---
+
 # Runtime Files
 
 | path                             | 用途                                 |
