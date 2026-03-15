@@ -7,7 +7,10 @@ import (
 )
 
 var listCmd = &cobra.Command{
-	Use: "list",
+	Use:   "list",
+	Short: "list running app processes",
+	Long: `Show all app processes registered in the current workspace.
+The active backend (currently receiving proxy traffic) is marked with *.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// 登録済みサーバーと現在の active を一覧表示する。
 		servers, _ := loadServers()

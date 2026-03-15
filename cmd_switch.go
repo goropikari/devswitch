@@ -7,7 +7,9 @@ import (
 )
 
 var switchCmd = &cobra.Command{
-	Use: "switch",
+	Use:   "switch",
+	Short: "switch proxy target to another app process",
+	Long:  `Interactively select a running app process and switch the proxy to forward traffic to it.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// 一覧から選択したサーバーへルーティングを切り替える。
 		servers, _ := loadServers()

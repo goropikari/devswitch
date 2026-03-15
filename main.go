@@ -303,7 +303,18 @@ func selectServer(servers []Server) (Server, error) {
 	return servers[idx], nil
 }
 
-var rootCmd = &cobra.Command{Use: "devswitch"}
+var rootCmd = &cobra.Command{
+	Use:   "devswitch",
+	Short: "dev server switcher with reverse proxy",
+	Long: `devswitch - dev server switcher with reverse proxy
+
+Environment variables:
+  DEVSWITCH_PORT            proxy listen port (default: 9000)            [proxy start, app start, info]
+  DEVSWITCH_BIND_HOST       proxy bind host   (default: localhost)       [proxy start, info]
+  DEVSWITCH_PROXY_PROVIDER  proxy provider    (native|traefik|socat, default: native) [proxy start, info]
+  DEVSWITCH_TMPDIR          override runtime directory path              [all commands]
+`,
+}
 
 // TCP 接続可否でポート生存を判定する。
 func portAlive(port int) bool {
@@ -333,11 +344,13 @@ http:
 
 func main() {
 	// ルートコマンドへサブコマンドを登録して実行する。
-	startCmd.Flags().StringVar(&portEnv, "port-env", "", "")
-	startCmd.Flags().StringVar(&portArg, "port-arg", "", "")
-	startCmd.Flags().BoolVar(&grpcMode, "grpc", false, "")
+	appStartCmd.Flags().StringVar(&portEnv, "port-env", "", "environment variable name to pass the port to the app (e.g. PORT)")
+	appStartCmd.Flags().StringVar(&portArg, "port-arg", "", "flag name to pass the port as a CLI argument (e.g. --port)")
+	appStartCmd.Flags().BoolVar(&grpcMode, "grpc", false, "treat the app as a gRPC server")
+	appCmd.AddCommand(appStartCmd)
+	appCmd.AddCommand(appStopCmd)
 	proxyStartCmd.Flags().BoolVar(&proxyDaemon, "daemon", true, "")
-	proxyStartCmd.Flags().StringVar(&proxyProvider, "provider", "", "reverse proxy provider (traefik|socat|native)")
+	proxyStartCmd.Flags().StringVar(&proxyProvider, "provider", "", "reverse proxy provider (native|traefik|socat)")
 	proxyStartCmd.Flags().StringVarP(&proxyBindHost, "bind", "b", "", "bind host (default: localhost)")
 	proxyCmd.AddCommand(proxyStartCmd)
 	proxyCmd.AddCommand(proxyStopCmd)
@@ -345,10 +358,9 @@ func main() {
 	rootCmd.AddCommand(proxyCmd)
 	rootCmd.AddCommand(proxyServeCmd)
 	rootCmd.AddCommand(infoCmd)
-	rootCmd.AddCommand(startCmd)
+	rootCmd.AddCommand(appCmd)
 	rootCmd.AddCommand(listCmd)
 	rootCmd.AddCommand(switchCmd)
-	rootCmd.AddCommand(stopCmd)
 	rootCmd.AddCommand(cleanupCmd)
 
 	_ = rootCmd.Execute()

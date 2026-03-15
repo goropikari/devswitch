@@ -8,7 +8,8 @@ import (
 
 var proxyStopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "stop proxy daemon",
+	Short: "stop the reverse proxy daemon",
+	Long:  `Stop the running reverse proxy and terminate all registered app processes.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		proxyImpl, err := currentReverseProxy()
 		if err != nil {

@@ -10,8 +10,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var startCmd = &cobra.Command{
-	Use: "start-server",
+var appCmd = &cobra.Command{
+	Use:   "app",
+	Short: "manage app processes",
+	Long:  `Start and stop app processes that run behind the reverse proxy.`,
+}
+
+var appStartCmd = &cobra.Command{
+	Use:   "start [flags] -- <command> [args...]",
+	Short: "start an app process",
+	Long: `Start an app process with an automatically assigned free port.
+
+devswitch picks a free port and passes it to the app via --port-env or --port-arg.
+The proxy is updated to route traffic to the new app immediately.
+
+Examples:
+  devswitch app start --port-env PORT -- python -m http.server
+    => PORT=54321 python -m http.server
+
+  devswitch app start --port-arg --port -- ./myapp
+    => ./myapp --port 54321
+
+  devswitch app start --port-env PORT --grpc -- ./grpc-server
+    => PORT=54321 ./grpc-server  (with gRPC/h2c routing)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if !proxyAlive() {
 			return fmt.Errorf("proxy server is not running; run `devswitch proxy start` first")
@@ -55,6 +76,25 @@ var startCmd = &cobra.Command{
 		setActive(port)
 
 		fmt.Println("started server", port)
+		return nil
+	},
+}
+
+var appStopCmd = &cobra.Command{
+	Use:   "stop",
+	Short: "stop an app process",
+	Long:  `Interactively select a running app process and stop it by sending SIGKILL to its TCP port.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		servers, _ := loadServers()
+		s, err := selectServer(servers)
+		if err != nil {
+			return err
+		}
+
+		if err := exec.Command("fuser", "-k", fmt.Sprintf("%d/tcp", s.Port)).Run(); err != nil {
+			warnErr(fmt.Sprintf("kill tcp port=%d", s.Port), err)
+		}
+		fmt.Println("stopped", s.Port)
 		return nil
 	},
 }

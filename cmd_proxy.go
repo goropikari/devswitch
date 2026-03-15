@@ -11,12 +11,22 @@ import (
 
 var proxyCmd = &cobra.Command{
 	Use:   "proxy",
-	Short: "manage proxy",
+	Short: "manage the reverse proxy",
+	Long:  `Start, stop, and manage the reverse proxy that forwards incoming traffic to app processes.`,
 }
 
 var proxyStartCmd = &cobra.Command{
 	Use:   "start",
-	Short: "start proxy daemon",
+	Short: "start the reverse proxy daemon",
+	Long: `Start the reverse proxy in daemon mode (default) or foreground.
+
+The proxy listens on DEVSWITCH_PORT (default 9000) and forwards traffic
+to the currently active app process. The provider can be selected with
+--provider or DEVSWITCH_PROXY_PROVIDER:
+
+  native   pure-Go HTTP/1.1 + gRPC reverse proxy (default, no extra binary needed)
+  traefik  Traefik-based proxy  (requires traefik binary)
+  socat    TCP-level forwarder  (requires socat binary)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// proxy 起動ごとに tmp dir を新規確定する。
 		if os.Getenv("DEVSWITCH_TMPDIR") == "" {

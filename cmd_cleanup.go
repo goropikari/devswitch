@@ -43,7 +43,8 @@ func cleanupAllStartedServers() error {
 
 var cleanupCmd = &cobra.Command{
 	Use:   "cleanup",
-	Short: "stop all started servers",
+	Short: "stop all app processes and reset state",
+	Long:  `Send SIGTERM to all registered app processes, release their ports, and reset the registry and active state.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return cleanupAllStartedServers()
 	},
