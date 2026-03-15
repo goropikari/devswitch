@@ -338,6 +338,7 @@ func selectServer(servers []Server) (Server, error) {
 var rootCmd = &cobra.Command{
 	Use:          "devswitch",
 	Short:        "dev server switcher with reverse proxy",
+	Version:      Version,
 	SilenceUsage: true,
 	Long: `devswitch - dev server switcher with reverse proxy
 
@@ -390,6 +391,7 @@ func Execute() error {
 	proxyCmd.AddCommand(proxyStartCmd)
 	proxyCmd.AddCommand(proxyStopCmd)
 
+	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(proxyCmd)
 	rootCmd.AddCommand(proxyServeCmd)
 	rootCmd.AddCommand(infoCmd)

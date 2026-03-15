@@ -28,8 +28,9 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
+          TAG="${GITHUB_REF_NAME}"
           ASSET="devswitch-${{ matrix.goos }}-${{ matrix.goarch }}"
-          go build -o "$ASSET" ./cmd/devswitch
+          go build -ldflags "-X github.com/goropikari/devswitch/internal/devswitch.Version=${TAG}" -o "$ASSET" ./cmd/devswitch
           echo "ASSET=$ASSET" >> "$GITHUB_ENV"
 
       - name: Upload release asset
