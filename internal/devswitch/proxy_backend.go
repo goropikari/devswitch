@@ -11,6 +11,10 @@ func providerStateFilePath() string {
 	return devswitchDir() + "/proxy.provider"
 }
 
+func proxyPortFilePath() string {
+	return devswitchDir() + "/proxy.port"
+}
+
 func normalizeProxyProviderName(name string) string {
 	n := strings.ToLower(strings.TrimSpace(name))
 	if n == "" {

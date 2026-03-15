@@ -28,12 +28,17 @@ to the currently active app process. The provider can be selected with
   traefik  Traefik-based proxy  (requires traefik binary)
   socat    TCP-level forwarder  (requires socat binary)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if proxyPort != "" {
+			os.Setenv("DEVSWITCH_PORT", proxyPort)
+		}
 		// proxy 起動ごとに tmp dir を新規確定する。
 		if os.Getenv("DEVSWITCH_TMPDIR") == "" {
 			if _, err := initRuntimeDir(true); err != nil {
 				return err
 			}
 		}
+		// 使用ポートを state ファイルに保存（他コマンドが参照できるよう）。
+		warnErr("write proxy port", os.WriteFile(proxyPortFilePath(), []byte(listenPort()), 0644))
 
 		providerName := strings.TrimSpace(proxyProvider)
 		if providerName == "" {

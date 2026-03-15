@@ -34,6 +34,7 @@ var grpcMode bool
 var proxyDaemon bool
 var proxyProvider string
 var proxyBindHost string
+var proxyPort string
 
 // 一時ディレクトリを決定する。
 // DEVSWITCH_TMPDIR があればそれを優先し、なければランタイム固定値を使う。
@@ -134,13 +135,24 @@ func proxyLogFilePath() string {
 }
 
 // proxy の待受ポートを返す。
-// DEVSWITCH_PORT は数値 (1-65535) であることを検証し、不正な場合はデフォルト値を使う。
+// 優先順: --port フラグ > proxy.port state ファイル > DEVSWITCH_PORT 環境変数 > デフォルト 9000
+// state ファイルは proxy start 時に書き込まれ、実際に起動中の proxy のポートを表す。
+// env var を state ファイルより後に見ることで、running proxy のポートを正しく追跡できる。
 func listenPort() string {
-	p := os.Getenv("DEVSWITCH_PORT")
-	if p != "" {
-		if n, err := strconv.Atoi(p); err == nil && n >= 1 && n <= 65535 {
+	validate := func(p string) bool {
+		n, err := strconv.Atoi(p)
+		return err == nil && n >= 1 && n <= 65535
+	}
+	if proxyPort != "" && validate(proxyPort) {
+		return proxyPort
+	}
+	if b, err := os.ReadFile(proxyPortFilePath()); err == nil {
+		if p := strings.TrimSpace(string(b)); validate(p) {
 			return p
 		}
+	}
+	if p := os.Getenv("DEVSWITCH_PORT"); p != "" && validate(p) {
+		return p
 	}
 	return "9000"
 }
@@ -374,6 +386,7 @@ func Execute() error {
 	proxyStartCmd.Flags().BoolVar(&proxyDaemon, "daemon", true, "")
 	proxyStartCmd.Flags().StringVar(&proxyProvider, "provider", "", "reverse proxy provider (native|traefik|socat)")
 	proxyStartCmd.Flags().StringVarP(&proxyBindHost, "bind", "b", "", "bind host (default: localhost)")
+	proxyStartCmd.Flags().StringVarP(&proxyPort, "port", "p", "", "proxy listen port (default: 9000)")
 	proxyCmd.AddCommand(proxyStartCmd)
 	proxyCmd.AddCommand(proxyStopCmd)
 

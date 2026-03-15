@@ -46,7 +46,10 @@ var infoCmd = &cobra.Command{
 			fmt.Println("DEVSWITCH_TMPDIR:", envTmp)
 		}
 		if envPort := os.Getenv("DEVSWITCH_PORT"); envPort != "" {
-			fmt.Println("DEVSWITCH_PORT:  ", envPort)
+			// proxy.port state ファイルがある場合はそちらが優先されるため表示しない。
+			if _, err := os.ReadFile(proxyPortFilePath()); os.IsNotExist(err) {
+				fmt.Println("DEVSWITCH_PORT:  ", envPort)
+			}
 		}
 		if envBind := os.Getenv("DEVSWITCH_BIND_HOST"); envBind != "" {
 			fmt.Println("DEVSWITCH_BIND_HOST:", envBind)
