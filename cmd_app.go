@@ -58,6 +58,15 @@ Examples:
 			}
 		}
 
+		// portEnv が有効な環境変数名かチェックする。
+		if portEnv != "" {
+			for _, ch := range portEnv {
+				if !((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_') {
+					return fmt.Errorf("--port-env: invalid environment variable name: %q", portEnv)
+				}
+			}
+		}
+
 		port := freePort()
 		command := args[0]
 		commandArgs := args[1:]

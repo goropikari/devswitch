@@ -49,6 +49,12 @@ var dynamicTemplate string
 func devswitchDir() string {
 	dir := os.Getenv("DEVSWITCH_TMPDIR")
 	if dir != "" {
+		// 絶対パスのみ許可してパストラバーサルを防ぐ。
+		if !filepath.IsAbs(dir) {
+			dir = ""
+		}
+	}
+	if dir != "" {
 		return dir
 	}
 
@@ -240,7 +246,7 @@ func saveRegistry(servers []Server) error {
 	defer f.Close()
 
 	for _, s := range servers {
-		_, _ = fmt.Fprintf(f, "%d %d %s %t %s", s.Port, s.PID, s.Branch, s.GRPC, s.Label)
+		_, _ = fmt.Fprintf(f, "%d %d %s %t %s", s.Port, s.PID, sanitizeFieldValue(s.Branch), s.GRPC, sanitizeFieldValue(s.Label))
 		if strings.TrimSpace(s.Command) != "" {
 			_, _ = fmt.Fprintf(f, "\t%s", s.Command)
 		}
@@ -248,6 +254,11 @@ func saveRegistry(servers []Server) error {
 	}
 
 	return os.Rename(tmp, registryFilePath())
+}
+
+func sanitizeFieldValue(s string) string {
+	// レジストリはスペース区切りのため、branch/label に含まれるスペースをアンダースコアに置換する。
+	return strings.ReplaceAll(strings.TrimSpace(s), " ", "_")
 }
 
 // 新規サーバーをレジストリに追加する。
