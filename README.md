@@ -107,8 +107,8 @@ devswitch app start --port-env PORT -- python -m http.server
 # => PORT=54321 python -m http.server
 
 # pass port via CLI flag
-devswitch app start --port-arg --port -- go run ./http/main.go
-# => go run ./http/main.go --port 54321
+devswitch app start --port-arg --port -- go run ./sample/server/http/main.go
+# => go run ./sample/server/http/main.go --port 54321
 ```
 
 #### Labels
@@ -124,8 +124,8 @@ devswitch app start -l debug-build --port-arg --port -- ./myapp
 #### gRPC mode
 
 ```bash
-devswitch app start --grpc --port-arg --port -- go -C ./grpc run main.go
-# => go -C ./grpc run main.go --port 54321  (h2c routing)
+devswitch app start --grpc --port-arg --port -- go -C ./sample/server/grpc run main.go
+# => go -C ./sample/server/grpc run main.go --port 54321  (h2c routing)
 ```
 
 grpcurl examples:

@@ -131,8 +131,8 @@ devswitch app start --port-env PORT -- python -m http.server
 ### フラグでポートを渡す
 
 ```bash
-devswitch app start --port-arg --port -- go run ./http/main.go
-# => go run ./http/main.go --port 54321
+devswitch app start --port-arg --port -- go run ./sample/server/http/main.go
+# => go run ./sample/server/http/main.go --port 54321
 ```
 
 ### ラベルを指定する
@@ -148,8 +148,8 @@ devswitch app start -l debug-build --port-arg --port -- ./myapp
 ### gRPC サーバー
 
 ```bash
-devswitch app start --grpc --port-arg --port -- go -C ./grpc run main.go
-# => go -C ./grpc run main.go --port 54321  (h2c ルーティング)
+devswitch app start --grpc --port-arg --port -- go -C ./sample/server/grpc run main.go
+# => go -C ./sample/server/grpc run main.go --port 54321  (h2c ルーティング)
 ```
 
 #### grpcurl サンプル
