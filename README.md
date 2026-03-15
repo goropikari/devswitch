@@ -209,6 +209,10 @@ All files are created under `<tmpdir>`:
 | `proxy.log` | proxy log (daemon mode only) |
 | `proxy.provider` | current provider name |
 
+## AI Notice
+
+Parts of this project were implemented with assistance from AI coding tools.
+
 ## License
 
 MIT
