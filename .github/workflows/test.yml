@@ -22,5 +22,8 @@ jobs:
       - name: Install fuser
         run: sudo apt-get install -y psmisc
 
+      - name: Build devswitch
+        run: go build -o devswitch ./cmd/devswitch
+
       - name: Run provider tests (native)
         run: make test-providers-native
