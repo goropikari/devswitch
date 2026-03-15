@@ -1,0 +1,26 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install grpcurl
+        run: go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
+
+      - name: Install fuser
+        run: sudo apt-get install -y psmisc
+
+      - name: Run provider tests (native)
+        run: make test-providers-native
