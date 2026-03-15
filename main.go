@@ -200,6 +200,9 @@ func loadServers() ([]Server, error) {
 			meta = strings.TrimSpace(parts[0])
 			command = strings.TrimSpace(parts[1])
 		}
+		if dec, err := url.PathUnescape(command); err == nil {
+			command = dec
+		}
 
 		fields := strings.Fields(meta)
 		if len(fields) < 2 {
@@ -255,7 +258,7 @@ func saveRegistry(servers []Server) error {
 	for _, s := range servers {
 		_, _ = fmt.Fprintf(f, "%d %d %s %t %s", s.Port, s.PID, sanitizeFieldValue(s.Branch), s.GRPC, sanitizeFieldValue(s.Label))
 		if strings.TrimSpace(s.Command) != "" {
-			_, _ = fmt.Fprintf(f, "\t%s", s.Command)
+			_, _ = fmt.Fprintf(f, "\t%s", sanitizeFieldValue(s.Command))
 		}
 		_, _ = fmt.Fprintln(f)
 	}
