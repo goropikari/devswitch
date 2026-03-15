@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -20,6 +21,16 @@ var proxyStopCmd = &cobra.Command{
 			return err
 		}
 		fmt.Println("proxy stop requested", listenPort())
-		return cleanupAllStartedServers()
+		if err := cleanupAllStartedServers(); err != nil {
+			return err
+		}
+
+		dir := devswitchDir()
+		if err := os.RemoveAll(dir); err != nil {
+			warnErr("remove tmpdir", err)
+		} else {
+			fmt.Println("removed tmpdir", dir)
+		}
+		return nil
 	},
 }
