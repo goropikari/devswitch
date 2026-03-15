@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -213,6 +214,9 @@ func loadServers() ([]Server, error) {
 		if len(fields) >= 3 {
 			branch = fields[2]
 		}
+		if dec, err := url.PathUnescape(branch); err == nil {
+			branch = dec
+		}
 		if len(fields) >= 4 {
 			if parsed, err := strconv.ParseBool(fields[3]); err == nil {
 				grpc = parsed
@@ -220,6 +224,9 @@ func loadServers() ([]Server, error) {
 		}
 		if len(fields) >= 5 {
 			label = fields[4]
+		}
+		if dec, err := url.PathUnescape(label); err == nil {
+			label = dec
 		}
 		if !pidAlive(pid) {
 			continue
@@ -257,8 +264,8 @@ func saveRegistry(servers []Server) error {
 }
 
 func sanitizeFieldValue(s string) string {
-	// レジストリはスペース区切りのため、branch/label に含まれるスペースをアンダースコアに置換する。
-	return strings.ReplaceAll(strings.TrimSpace(s), " ", "_")
+	// レジストリはスペース区切りのため、branch/label を percent encoding する。
+	return url.PathEscape(strings.TrimSpace(s))
 }
 
 // 新規サーバーをレジストリに追加する。
