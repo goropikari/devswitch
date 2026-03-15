@@ -1,4 +1,4 @@
-package main
+package devswitch
 
 import (
 	"bufio"
@@ -373,7 +373,7 @@ http:
 	return os.WriteFile(dynamicPath(), []byte(y), 0644)
 }
 
-func main() {
+func Execute() error {
 	// ルートコマンドへサブコマンドを登録して実行する。
 	appStartCmd.Flags().StringVar(&portEnv, "port-env", "", "environment variable name to pass the port to the app (e.g. PORT)")
 	appStartCmd.Flags().StringVar(&portArg, "port-arg", "", "flag name to pass the port as a CLI argument (e.g. --port)")
@@ -396,5 +396,5 @@ func main() {
 	rootCmd.AddCommand(switchCmd)
 	rootCmd.AddCommand(cleanupCmd)
 
-	_ = rootCmd.Execute()
+	return rootCmd.Execute()
 }

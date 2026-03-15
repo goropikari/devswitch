@@ -1,11 +1,11 @@
-package main
+package devswitch
 
 import (
 	"fmt"
 	"os"
 	"strings"
 
-	"github.com/goropikari/devswitch/provider"
+	"github.com/goropikari/devswitch/internal/provider"
 	"github.com/spf13/cobra"
 )
 

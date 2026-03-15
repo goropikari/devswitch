@@ -1,7 +1,7 @@
-package main
+package devswitch
 
 import (
-	"github.com/goropikari/devswitch/provider"
+	"github.com/goropikari/devswitch/internal/provider"
 	"github.com/spf13/cobra"
 )
 

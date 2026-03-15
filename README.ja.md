@@ -63,13 +63,13 @@ active dev server
 ```bash
 git clone https://github.com/goropikari/devswitch.git
 cd devswitch
-go build -o devswitch
+go build -o devswitch ./cmd/devswitch
 ```
 
 ## go install で入れる
 
 ```bash
-go install github.com/goropikari/devswitch@latest
+go install github.com/goropikari/devswitch/cmd/devswitch@latest
 ```
 
 ---

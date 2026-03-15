@@ -1,10 +1,10 @@
-package main
+package devswitch
 
 import (
 	"os"
 	"strings"
 
-	"github.com/goropikari/devswitch/provider"
+	"github.com/goropikari/devswitch/internal/provider"
 )
 
 func providerStateFilePath() string {
