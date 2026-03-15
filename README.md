@@ -6,8 +6,7 @@ Japanese docs are available in [README.ja.md](README.ja.md).
 `devswitch` is a CLI tool for running multiple local development servers and
 switching traffic from one stable endpoint to the active target.
 
-It uses Traefik as a reverse proxy and rewrites dynamic config to switch
-HTTP / gRPC backends instantly.
+It uses a reverse proxy (native/Traefik/socat) to switch HTTP / gRPC backends instantly.
 
 ## Architecture
 
@@ -18,7 +17,7 @@ client
 localhost:9000
   |
   v
-Traefik (reverse proxy)
+reverse proxy (native / Traefik / socat)
   |
   v
 active dev server
@@ -27,23 +26,23 @@ active dev server
 What devswitch does:
 
 - Starts app servers on free ports
-- Stores started server metadata (branch + port + PID)
-- Updates Traefik dynamic config
+- Stores started server metadata (label + branch + port + PID)
+- Updates proxy routing
 - Switches active target with an interactive selector (`promptui`)
 - Shares runtime state across git worktrees in the same repository
 
 ## Requirements
 
 - Go 1.26+
-- Traefik
 - interactive terminal (TTY)
 
-Install examples:
+Per-provider extra requirements:
 
-No extra selector command is required. `devswitch` uses `promptui` internally.
-
-Install Traefik from the official docs (Linux):
-<https://doc.traefik.io/traefik/getting-started/install-traefik/>
+| Provider | Requirement |
+| --- | --- |
+| `native` (default) | none (pure Go) |
+| `traefik` | [Traefik binary](https://doc.traefik.io/traefik/getting-started/install-traefik/) |
+| `socat` | socat command |
 
 ## Installation
 
@@ -61,17 +60,12 @@ go install github.com/goropikari/devswitch@latest
 
 ## Environment Variables
 
-| Variable | Description | Default |
-| --- | --- | --- |
-| `DEVSWITCH_PORT` | proxy listen port | `9000` |
-| `DEVSWITCH_TMPDIR` | directory for state/log/config files | auto-generated under `/tmp` |
-
-Example:
-
-```bash
-export DEVSWITCH_PORT=9000
-export DEVSWITCH_TMPDIR=/tmp/devswitch
-```
+| Variable | Description | Default | Affected commands |
+| --- | --- | --- | --- |
+| `DEVSWITCH_PORT` | proxy listen port | `9000` | proxy start, app start, info |
+| `DEVSWITCH_BIND_HOST` | proxy bind host | `localhost` | proxy start, info |
+| `DEVSWITCH_PROXY_PROVIDER` | proxy provider (`native`\|`traefik`\|`socat`) | `native` | proxy start, info |
+| `DEVSWITCH_TMPDIR` | directory for state/log/config files | auto-generated under `/tmp` | all commands |
 
 ## Usage
 
@@ -83,15 +77,17 @@ devswitch proxy start
 
 `proxy start` runs in daemon mode by default.
 
-Stop proxy:
-
 ```bash
+# bind to all interfaces (for devcontainer → host access)
+devswitch proxy start -b 0.0.0.0
+
+# select provider
+devswitch proxy start --provider traefik
+
+# stop
 devswitch proxy stop
-```
 
-Show proxy log path:
-
-```bash
+# show status
 devswitch info
 ```
 
@@ -103,28 +99,36 @@ http://localhost:9000
 
 ### 2) Start app server
 
-Run the HTTP sample (`http/main.go`) with `--port`:
+`devswitch app start` automatically picks a free port and passes it to the app.
 
 ```bash
-devswitch start-server \
-  --port-arg --port \
-  -- go run ./http/main.go
+# pass port via environment variable
+devswitch app start --port-env PORT -- python -m http.server
+# => PORT=54321 python -m http.server
+
+# pass port via CLI flag
+devswitch app start --port-arg --port -- go run ./http/main.go
+# => go run ./http/main.go --port 54321
 ```
 
-### 3) gRPC mode
+#### Labels
 
-Start a gRPC backend with `--grpc`:
+Assign a label to identify each process when multiple servers run on the same branch.
+If omitted, a random Docker-style name (`adjective_noun`) is generated.
 
 ```bash
-devswitch start-server \
-  --grpc \
-  --port-arg --port \
-  -- go -C ./grpc run main.go
+devswitch app start --label my-feature --port-env PORT -- ./myapp
+devswitch app start -l debug-build --port-arg --port -- ./myapp
 ```
 
-Traefik backend scheme is switched to `h2c`.
+#### gRPC mode
 
-grpcurl examples (through proxy default port `9000`):
+```bash
+devswitch app start --grpc --port-arg --port -- go -C ./grpc run main.go
+# => go -C ./grpc run main.go --port 54321  (h2c routing)
+```
+
+grpcurl examples:
 
 ```bash
 grpcurl -plaintext localhost:9000 list
@@ -132,40 +136,78 @@ grpcurl -plaintext localhost:9000 list hello.HelloService
 grpcurl -plaintext -d '{}' localhost:9000 hello.HelloService/SayHello
 ```
 
-### 4) Switch active server
+### 3) Switch active server
 
 ```bash
 devswitch switch
 ```
 
-### 5) Manage running servers
+An interactive selector opens. Entries show label, branch, port, and command:
+
+```
+  happy_turing           branch=[main]          port=54321 pid=12345 cmd=...
+  nervous_hopper         branch=[feature/login]  port=54322 pid=12346 cmd=...
+```
+
+### 4) List running servers
 
 ```bash
 devswitch list
-devswitch stop
+```
+
+```
+LABEL                  BRANCH            PORT     PID      ACTIVE CMD
+happy_turing           [main]            54321    12345    *      PORT=54321 ./myapp
+nervous_hopper         [feature/login]   54322    12346           PORT=54322 ./myapp
+```
+
+The active backend is marked with `*`.
+
+### 5) Stop an app
+
+```bash
+devswitch app stop
+```
+
+If the stopped app was active, devswitch automatically switches to another running app.
+
+### 6) Stop all and reset
+
+```bash
 devswitch cleanup
 ```
 
-`list` shows servers in `BRANCH PORT PID ACTIVE` order.
-
-## Runtime Files
-
-Files are created under `<tmpdir>`:
-
-- `<tmpdir>/devswitch_static.yml` (Traefik static config)
-- `<tmpdir>/devswitch_dynamic.yml` (routing config)
-- `<tmpdir>/devswitch_servers` (server registry)
-- `<tmpdir>/devswitch_active` (active target)
-- `<tmpdir>/proxy.pid` (proxy daemon PID)
-- `<tmpdir>/proxy.log` (proxy log)
+Terminates all registered app processes and resets registry and active state.
 
 ## Devcontainer
 
-If using devcontainer port forwarding, one port is enough:
+Only one port needs to be forwarded:
 
 ```json
 "forwardPorts": [9000]
 ```
+
+To make the proxy reachable from the host:
+
+```bash
+DEVSWITCH_BIND_HOST=0.0.0.0 devswitch proxy start
+# or
+devswitch proxy start -b 0.0.0.0
+```
+
+## Runtime Files
+
+All files are created under `<tmpdir>`:
+
+| Path | Purpose |
+| --- | --- |
+| `devswitch_static.yml` | Traefik static config |
+| `devswitch_dynamic.yml` | routing config |
+| `devswitch_servers` | server registry |
+| `devswitch_active` | active target port |
+| `proxy.pid` | proxy daemon PID |
+| `proxy.log` | proxy log (daemon mode only) |
+| `proxy.provider` | current provider name |
 
 ## License
 

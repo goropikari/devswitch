@@ -10,6 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var appLabel string
+
 var appCmd = &cobra.Command{
 	Use:   "app",
 	Short: "manage app processes",
@@ -32,7 +34,10 @@ Examples:
     => ./myapp --port 54321
 
   devswitch app start --port-env PORT --grpc -- ./grpc-server
-    => PORT=54321 ./grpc-server  (with gRPC/h2c routing)`,
+    => PORT=54321 ./grpc-server  (with gRPC/h2c routing)
+
+  devswitch app start --label my-feature --port-env PORT -- ./myapp
+    => PORT=54321 ./myapp  (label: my-feature)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if !proxyAlive() {
 			return fmt.Errorf("proxy server is not running; run `devswitch proxy start` first")
@@ -40,6 +45,17 @@ Examples:
 
 		if len(args) == 0 {
 			return fmt.Errorf("command required")
+		}
+
+		// ラベルの重複チェック（起動前に行う）。
+		label := strings.TrimSpace(appLabel)
+		if label != "" {
+			existing, _ := loadServers()
+			for _, s := range existing {
+				if s.Label == label {
+					return fmt.Errorf("label %q is already used by port %d (pid %d)", label, s.Port, s.PID)
+				}
+			}
 		}
 
 		port := freePort()
@@ -71,7 +87,10 @@ Examples:
 		}
 
 		// 起動後にレジストリ・ルーティング・active を更新する。
-		warnErr("register started server", addServer(Server{Port: port, PID: c.Process.Pid, Branch: currentBranchName(), GRPC: grpcMode, Command: runCommand}))
+		if label == "" {
+			label = randomName()
+		}
+		warnErr("register started server", addServer(Server{Port: port, PID: c.Process.Pid, Branch: currentBranchName(), GRPC: grpcMode, Label: label, Command: runCommand}))
 		warnErr("update proxy route", updateProxyRoute(port, grpcMode))
 		setActive(port)
 
@@ -112,7 +131,7 @@ var appStopCmd = &cobra.Command{
 				next := others[len(others)-1]
 				warnErr("update proxy route", updateProxyRoute(next.Port, next.GRPC))
 				setActive(next.Port)
-				fmt.Printf("switched active to port %d (branch %s)\n", next.Port, formatBranchLabel(next.Branch))
+				fmt.Printf("switched active to port %d (%s, branch %s)\n", next.Port, next.Label, formatBranchLabel(next.Branch))
 			} else {
 				setActive(0)
 				fmt.Println("no remaining app processes")

@@ -16,7 +16,7 @@ The active backend (currently receiving proxy traffic) is marked with *.`,
 		servers, _ := loadServers()
 		active := currentActive()
 
-		fmt.Printf("%-17s %-8s %-8s %-6s %s\n", "BRANCH", "PORT", "PID", "ACTIVE", "CMD")
+		fmt.Printf("%-22s %-17s %-8s %-8s %-6s %s\n", "LABEL", "BRANCH", "PORT", "PID", "ACTIVE", "CMD")
 		for _, s := range servers {
 			branch := formatBranchLabel(s.Branch)
 			runCmd := s.Command
@@ -27,7 +27,7 @@ The active backend (currently receiving proxy traffic) is marked with *.`,
 			if s.Port == active {
 				mark = "*"
 			}
-			fmt.Printf("%-17s %-8d %-8d %-6s %s\n", branch, s.Port, s.PID, mark, runCmd)
+			fmt.Printf("%-22s %-17s %-8d %-8d %-6s %s\n", s.Label, branch, s.Port, s.PID, mark, runCmd)
 		}
 		return nil
 	},

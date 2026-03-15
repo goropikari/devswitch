@@ -23,6 +23,7 @@ type Server struct {
 	PID     int
 	Branch  string
 	GRPC    bool
+	Label   string
 	Command string
 }
 
@@ -202,6 +203,7 @@ func loadServers() ([]Server, error) {
 		pid, _ := strconv.Atoi(fields[1])
 		branch := "-"
 		grpc := false
+		label := "-"
 		if len(fields) >= 3 {
 			branch = fields[2]
 		}
@@ -210,11 +212,14 @@ func loadServers() ([]Server, error) {
 				grpc = parsed
 			}
 		}
+		if len(fields) >= 5 {
+			label = fields[4]
+		}
 		if !pidAlive(pid) {
 			continue
 		}
 
-		servers = append(servers, Server{Port: port, PID: pid, Branch: branch, GRPC: grpc, Command: command})
+		servers = append(servers, Server{Port: port, PID: pid, Branch: branch, GRPC: grpc, Label: label, Command: command})
 	}
 
 	_ = saveRegistry(servers)
@@ -235,7 +240,7 @@ func saveRegistry(servers []Server) error {
 	defer f.Close()
 
 	for _, s := range servers {
-		_, _ = fmt.Fprintf(f, "%d %d %s %t", s.Port, s.PID, s.Branch, s.GRPC)
+		_, _ = fmt.Fprintf(f, "%d %d %s %t %s", s.Port, s.PID, s.Branch, s.GRPC, s.Label)
 		if strings.TrimSpace(s.Command) != "" {
 			_, _ = fmt.Fprintf(f, "\t%s", s.Command)
 		}
@@ -285,7 +290,7 @@ func selectServer(servers []Server) (Server, error) {
 		if strings.TrimSpace(runCmd) == "" {
 			runCmd = "-"
 		}
-		items = append(items, fmt.Sprintf("branch=%s port=%d pid=%d cmd=%s", formatBranchLabel(s.Branch), s.Port, s.PID, runCmd))
+		items = append(items, fmt.Sprintf("%-22s branch=%s port=%d pid=%d cmd=%s", s.Label, formatBranchLabel(s.Branch), s.Port, s.PID, runCmd))
 	}
 
 	prompt := promptui.Select{
@@ -308,8 +313,9 @@ func selectServer(servers []Server) (Server, error) {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "devswitch",
-	Short: "dev server switcher with reverse proxy",
+	Use:          "devswitch",
+	Short:        "dev server switcher with reverse proxy",
+	SilenceUsage: true,
 	Long: `devswitch - dev server switcher with reverse proxy
 
 Environment variables:
@@ -351,6 +357,7 @@ func main() {
 	appStartCmd.Flags().StringVar(&portEnv, "port-env", "", "environment variable name to pass the port to the app (e.g. PORT)")
 	appStartCmd.Flags().StringVar(&portArg, "port-arg", "", "flag name to pass the port as a CLI argument (e.g. --port)")
 	appStartCmd.Flags().BoolVar(&grpcMode, "grpc", false, "treat the app as a gRPC server")
+	appStartCmd.Flags().StringVarP(&appLabel, "label", "l", "", "label for this app process (default: random name)")
 	appCmd.AddCommand(appStartCmd)
 	appCmd.AddCommand(appStopCmd)
 	proxyStartCmd.Flags().BoolVar(&proxyDaemon, "daemon", true, "")
