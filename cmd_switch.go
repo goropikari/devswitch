@@ -16,7 +16,7 @@ var switchCmd = &cobra.Command{
 			return err
 		}
 
-		warnErr("update dynamic config", writeDynamic(s.Port, s.GRPC))
+		warnErr("update proxy route", updateProxyRoute(s.Port, s.GRPC))
 		setActive(s.Port)
 		fmt.Println("Switched to:")
 		fmt.Printf("Branch: %s\n", formatBranchLabel(s.Branch))

@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"text/template"
 	"time"
 
 	"github.com/manifoldco/promptui"
@@ -32,6 +31,8 @@ var portEnv string
 var portArg string
 var grpcMode bool
 var proxyDaemon bool
+var proxyProvider string
+var proxyBindHost string
 
 //go:embed templates/traefik_static.yml
 var staticTemplate string
@@ -135,12 +136,15 @@ func proxyLogFilePath() string {
 }
 
 // proxy の待受ポートを返す。
+// DEVSWITCH_PORT は数値 (1-65535) であることを検証し、不正な場合はデフォルト値を使う。
 func listenPort() string {
 	p := os.Getenv("DEVSWITCH_PORT")
-	if p == "" {
-		p = "9000"
+	if p != "" {
+		if n, err := strconv.Atoi(p); err == nil && n >= 1 && n <= 65535 {
+			return p
+		}
 	}
-	return p
+	return "9000"
 }
 
 // proxy の待受ポートに接続できるかで、proxy 起動中かを判定する。
@@ -265,40 +269,6 @@ func currentActive() int {
 }
 
 // Traefik dynamic 設定を対象ポート向けに更新する。
-func writeDynamic(port int, grpc bool) error {
-	if err := ensureTmpDir(); err != nil {
-		return err
-	}
-
-	scheme := "http"
-	if grpc {
-		scheme = "h2c"
-	}
-
-	type Data struct {
-		Port   int
-		Scheme string
-	}
-
-	tmpl, err := template.New("dynamic").Parse(dynamicTemplate)
-	if err != nil {
-		return err
-	}
-
-	tmp := dynamicPath() + ".tmp"
-	f, err := os.Create(tmp)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	if err := tmpl.Execute(f, Data{Port: port, Scheme: scheme}); err != nil {
-		return err
-	}
-
-	return os.Rename(tmp, dynamicPath())
-}
-
 // promptui でサーバーを選択させる。
 func selectServer(servers []Server) (Server, error) {
 	if len(servers) == 0 {
@@ -367,10 +337,13 @@ func main() {
 	startCmd.Flags().StringVar(&portArg, "port-arg", "", "")
 	startCmd.Flags().BoolVar(&grpcMode, "grpc", false, "")
 	proxyStartCmd.Flags().BoolVar(&proxyDaemon, "daemon", true, "")
+	proxyStartCmd.Flags().StringVar(&proxyProvider, "provider", "", "reverse proxy provider (traefik|socat|native)")
+	proxyStartCmd.Flags().StringVarP(&proxyBindHost, "bind", "b", "", "bind host (default: localhost)")
 	proxyCmd.AddCommand(proxyStartCmd)
 	proxyCmd.AddCommand(proxyStopCmd)
 
 	rootCmd.AddCommand(proxyCmd)
+	rootCmd.AddCommand(proxyServeCmd)
 	rootCmd.AddCommand(infoCmd)
 	rootCmd.AddCommand(startCmd)
 	rootCmd.AddCommand(listCmd)

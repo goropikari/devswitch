@@ -14,7 +14,7 @@ var startCmd = &cobra.Command{
 	Use: "start-server",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if !proxyAlive() {
-			return fmt.Errorf("proxy server is not running; run `devswitch proxy` first")
+			return fmt.Errorf("proxy server is not running; run `devswitch proxy start` first")
 		}
 
 		if len(args) == 0 {
@@ -51,7 +51,7 @@ var startCmd = &cobra.Command{
 
 		// 起動後にレジストリ・ルーティング・active を更新する。
 		warnErr("register started server", addServer(Server{Port: port, PID: c.Process.Pid, Branch: currentBranchName(), GRPC: grpcMode, Command: runCommand}))
-		warnErr("update dynamic config", writeDynamic(port, grpcMode))
+		warnErr("update proxy route", updateProxyRoute(port, grpcMode))
 		setActive(port)
 
 		fmt.Println("started server", port)
