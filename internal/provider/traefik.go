@@ -1,11 +1,21 @@
 package provider
 
 import (
+	_ "embed"
 	"os"
 	"os/exec"
 	"strings"
 	"text/template"
 )
+
+//go:embed templates/traefik/traefik_static.yml
+var staticTemplate string
+
+//go:embed templates/traefik/dynamic_initial.yml
+var dynamicInitial string
+
+//go:embed templates/traefik/dynamic_service.yml
+var dynamicTemplate string
 
 type traefikProxy struct{ env Env }
 
@@ -20,7 +30,7 @@ func (p traefikProxy) Start(opts StartOptions) (StartResult, error) {
 	// 初回起動時は dynamic 設定の雛形を作成する。
 	if _, err := os.Stat(p.env.DynConfigPath); err != nil {
 		p.env.WarnErr("write initial dynamic config",
-			os.WriteFile(p.env.DynConfigPath, []byte(p.env.DynInitial), 0644))
+			os.WriteFile(p.env.DynConfigPath, []byte(dynamicInitial), 0644))
 	}
 
 	// static 設定テンプレートへ値を埋め込む。
@@ -28,7 +38,7 @@ func (p traefikProxy) Start(opts StartOptions) (StartResult, error) {
 	if bindHost == "" {
 		bindHost = "localhost"
 	}
-	conf := p.env.StaticTemplate
+	conf := staticTemplate
 	conf = strings.ReplaceAll(conf, "${BIND_HOST}", bindHost)
 	conf = strings.ReplaceAll(conf, "${PORT}", p.env.ListenPort)
 	conf = strings.ReplaceAll(conf, "${DYNAMIC_CONFIG}", p.env.DynConfigPath)
@@ -62,7 +72,7 @@ func (p traefikProxy) UpdateRoute(port int, grpc bool) error {
 		Scheme string
 	}
 
-	tmpl, err := template.New("dynamic").Parse(p.env.DynTemplate)
+	tmpl, err := template.New("dynamic").Parse(dynamicTemplate)
 	if err != nil {
 		return err
 	}

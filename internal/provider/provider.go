@@ -34,9 +34,6 @@ type Env struct {
 	PIDFilePath      string
 	DynConfigPath    string
 	StaticConfigPath string
-	DynTemplate      string
-	DynInitial       string
-	StaticTemplate   string
 	Executable       string
 	GetActive        func() int
 	SetActive        func(int)

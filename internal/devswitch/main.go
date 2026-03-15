@@ -3,7 +3,6 @@ package devswitch
 import (
 	"bufio"
 	"crypto/sha256"
-	_ "embed"
 	"encoding/hex"
 	"fmt"
 	"net"
@@ -35,15 +34,6 @@ var grpcMode bool
 var proxyDaemon bool
 var proxyProvider string
 var proxyBindHost string
-
-//go:embed templates/traefik_static.yml
-var staticTemplate string
-
-//go:embed templates/dynamic_initial.yml
-var dynamicInitial string
-
-//go:embed templates/dynamic_service.yml
-var dynamicTemplate string
 
 // 一時ディレクトリを決定する。
 // DEVSWITCH_TMPDIR があればそれを優先し、なければランタイム固定値を使う。
