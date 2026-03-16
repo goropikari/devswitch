@@ -11,6 +11,9 @@
         .grid-form { margin-top: 2rem; }
         .proxy-meta { margin-bottom: 1rem; color: var(--pico-muted-color); }
         .proxy-port { font-weight: 700; color: var(--pico-primary); }
+        .cmd-details summary { cursor: pointer; }
+        .cmd-preview { color: var(--pico-muted-color); }
+        .cmd-full { margin-top: 0.4rem; white-space: pre-wrap; word-break: break-word; }
     </style>
 </head>
 <body>
@@ -31,6 +34,7 @@
                         <th>Port</th>
                         <th>PID</th>
                         <th>Status</th>
+                        <th>Details</th>
                         <th>Action</th>
                     </tr>
                 </thead>
@@ -94,9 +98,26 @@
             const proxyPort = document.getElementById('proxy-port');
             list.innerHTML = '';
             proxyPort.textContent = data.proxy?.port ?? '-';
+
+            const escapeHtml = (v) => String(v ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+
+            const buildCommand = (s) => {
+                const parts = [];
+                if (s.Command) parts.push(s.Command);
+                if (Array.isArray(s.Args) && s.Args.length > 0) parts.push(...s.Args);
+                const full = parts.join(' ').trim();
+                return full || '-';
+            };
             
             data.servers.forEach(s => {
                 const isActive = s.Port === data.active && s.running;
+                const fullCommand = buildCommand(s);
+                const preview = fullCommand.length > 42 ? `${fullCommand.slice(0, 42)}...` : fullCommand;
                 const row = document.createElement('tr');
                 if (isActive) row.classList.add('active-row');
                 
@@ -108,6 +129,12 @@
                     <td>
                         ${s.running ? '<span class="active-mark">● Running</span>' : '<span style="color:gray">○ Stopped</span>'}
                         ${isActive ? ' <strong>(Active)</strong>' : ''}
+                    </td>
+                    <td>
+                        <details class="cmd-details">
+                            <summary class="cmd-preview">Show command</summary>
+                            <code class="cmd-full">${escapeHtml(fullCommand)}</code>
+                        </details>
                     </td>
                     <td>
                         <div role="group">

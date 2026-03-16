@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -59,12 +60,36 @@ var uiServeCmd = &cobra.Command{
 	},
 }
 
+// lookupPortPID returns the PID of the process listening on the given TCP port,
+// using `ss`. Returns 0 if not found.
+func lookupPortPID(port int) int {
+	out, err := exec.Command("ss", "-Htlnp", fmt.Sprintf("sport = :%d", port)).Output()
+	if err != nil {
+		return 0
+	}
+	// Output format: LISTEN 0 4096 *:PORT *:* users:(("name",pid=PID,fd=FD))
+	s := string(out)
+	idx := strings.Index(s, "pid=")
+	if idx < 0 {
+		return 0
+	}
+	rest := s[idx+4:]
+	end := strings.IndexAny(rest, ",)")
+	if end < 0 {
+		return 0
+	}
+	pid, _ := strconv.Atoi(rest[:end])
+	return pid
+}
+
 func handleGetServers(w http.ResponseWriter, r *http.Request) {
 	servers, _ := loadServers()
 	active := currentActive()
+	// PID field shadows Server.PID in JSON output so we can override it.
 	type serverStatus struct {
 		Server
 		Running bool `json:"running"`
+		PID     int  `json:"PID"`
 	}
 	statuses := make([]serverStatus, 0, len(servers))
 	for _, s := range servers {
@@ -74,9 +99,14 @@ func handleGetServers(w http.ResponseWriter, r *http.Request) {
 		} else {
 			running = portAlive(s.Port)
 		}
+		resolvedPID := s.PID
+		if s.PID == 0 && running {
+			resolvedPID = lookupPortPID(s.Port)
+		}
 		statuses = append(statuses, serverStatus{
 			Server:  s,
 			Running: running,
+			PID:     resolvedPID,
 		})
 	}
 
