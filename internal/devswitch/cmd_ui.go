@@ -38,21 +38,22 @@ var uiServeCmd = &cobra.Command{
 		http.HandleFunc("/api/activate", handlePostActivate)
 		http.HandleFunc("/api/stop", handlePostStop)
 		http.HandleFunc("/api/start", handlePostStart)
+		http.HandleFunc("/api/register", handlePostRegister)
 
 		url := fmt.Sprintf("http://localhost:%s", uiPort)
 		fmt.Printf("UI started at %s\n", url)
 		// openBrowser(url) // Daemon mode, probably shouldn't open browser automatically? Or maybe yes? User didn't specify.
-        // existing code had openBrowser. If it runs as daemon, maybe we don't want to pop up browser every time proxy starts?
-        // But the original `ui` command did.
-        // "proxy を立ち上げたら ui の server もデーモンで立ち上げてほしい"
-        // Usually daemons don't open browsers. I'll comment it out or leave it?
-        // Let's keep it for now but maybe we can decide later.
-        // Actually, if it runs in background, opening browser might be annoying if it happens on every restart.
-        // But for "devswitch", maybe it is desired.
-        // However, I will comment it out because `openBrowser` might fail or be weird in daemon context (though it's just exec).
-        // Let's stick to the request: "proxy を立ち上げたら ui の server もデーモンで立ち上げてほしい".
-        // It doesn't say "open browser".
-        // I will comment out openBrowser for __ui-serve.
+		// existing code had openBrowser. If it runs as daemon, maybe we don't want to pop up browser every time proxy starts?
+		// But the original `ui` command did.
+		// "proxy を立ち上げたら ui の server もデーモンで立ち上げてほしい"
+		// Usually daemons don't open browsers. I'll comment it out or leave it?
+		// Let's keep it for now but maybe we can decide later.
+		// Actually, if it runs in background, opening browser might be annoying if it happens on every restart.
+		// But for "devswitch", maybe it is desired.
+		// However, I will comment it out because `openBrowser` might fail or be weird in daemon context (though it's just exec).
+		// Let's stick to the request: "proxy を立ち上げたら ui の server もデーモンで立ち上げてほしい".
+		// It doesn't say "open browser".
+		// I will comment out openBrowser for __ui-serve.
 
 		return http.ListenAndServe(":"+uiPort, nil)
 	},
@@ -67,9 +68,15 @@ func handleGetServers(w http.ResponseWriter, r *http.Request) {
 	}
 	statuses := make([]serverStatus, 0, len(servers))
 	for _, s := range servers {
+		running := false
+		if s.PID > 0 {
+			running = pidAlive(s.PID)
+		} else {
+			running = portAlive(s.Port)
+		}
 		statuses = append(statuses, serverStatus{
 			Server:  s,
-			Running: s.PID > 0 && pidAlive(s.PID),
+			Running: running,
 		})
 	}
 
@@ -104,8 +111,13 @@ func handlePostActivate(w http.ResponseWriter, r *http.Request) {
 
 	port := s.Port
 
-	// If the server is not running, restart it.
-	if s.PID == 0 || !pidAlive(s.PID) {
+	if s.PID == 0 {
+		if !portAlive(port) {
+			http.Error(w, "external server is not listening on its registered port", http.StatusBadRequest)
+			return
+		}
+	} else if !pidAlive(s.PID) {
+		// If a managed server is not running, restart it.
 		newPort, err := StartAppServer(StartAppParams{
 			Label:   s.Label,
 			Command: s.Command,
@@ -173,6 +185,69 @@ func handlePostStart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func handlePostRegister(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Label string `json:"label"`
+		Port  int    `json:"port"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if !proxyAlive() {
+		http.Error(w, "proxy server is not running; run `devswitch proxy start` first", http.StatusBadRequest)
+		return
+	}
+
+	if req.Port <= 0 || req.Port > 65535 {
+		http.Error(w, "valid port is required", http.StatusBadRequest)
+		return
+	}
+
+	if !portAlive(req.Port) {
+		http.Error(w, fmt.Sprintf("port %d is not listening", req.Port), http.StatusBadRequest)
+		return
+	}
+
+	label := strings.TrimSpace(req.Label)
+	if label == "" {
+		label = randomName()
+	}
+
+	servers, _ := loadServers()
+	for _, s := range servers {
+		if s.Port == req.Port {
+			warnErr("update proxy route", updateProxyRoute(req.Port))
+			setActive(req.Port)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if s.Label == label {
+			http.Error(w, fmt.Sprintf("label %q is already used by port %d", label, s.Port), http.StatusBadRequest)
+			return
+		}
+	}
+
+	if err := addServer(Server{
+		Port:    req.Port,
+		PID:     0,
+		Branch:  currentBranchName(),
+		Label:   label,
+		Command: "external",
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := updateProxyRoute(req.Port); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	setActive(req.Port)
 	w.WriteHeader(http.StatusOK)
 }
 

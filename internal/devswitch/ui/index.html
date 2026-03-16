@@ -67,6 +67,23 @@
                 <button type="submit">Start Server</button>
             </form>
         </section>
+
+        <section class="grid-form">
+            <h2>Register Existing Port</h2>
+            <form id="register-form">
+                <div class="grid">
+                    <label>
+                        Label
+                        <input type="text" name="label" placeholder="Optional">
+                    </label>
+                    <label>
+                        Port
+                        <input type="number" name="port" min="1" max="65535" placeholder="e.g. 3000" required>
+                    </label>
+                </div>
+                <button type="submit" class="secondary">Register & Activate</button>
+            </form>
+        </section>
     </main>
 
     <script>
@@ -156,6 +173,29 @@
             } else {
                 const err = await resp.text();
                 alert('Error: ' + err);
+            }
+        };
+
+        document.getElementById('register-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const body = {
+                label: formData.get('label'),
+                port: Number(formData.get('port'))
+            };
+
+            const resp = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            if (resp.ok) {
+                e.target.reset();
+                fetchServers();
+            } else {
+                const err = await resp.text();
+                alert('Register Error: ' + err);
             }
         };
 

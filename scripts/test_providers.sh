@@ -90,12 +90,14 @@ run_for_provider() {
   suffix="$(date +%s)-$$"
   local port
   port=$(get_free_port)
+  local external_port
+  local external_pid=""
 
 
   echo "== provider: $p (port: $port) =="
   cleanup
 
-  "$DEVSWITCH_BIN" proxy start --provider "$p" --port "$port" >/dev/null
+  "$DEVSWITCH_BIN" proxy start --provider "$p" --port "$port" --ui=false >/dev/null
 
   "$DEVSWITCH_BIN" app start --port-arg --port --label "${p}-http-${suffix}" -- go run ./sample/server/http/main.go >/dev/null
   if ! wait_http_ready "$port"; then
@@ -120,6 +122,32 @@ run_for_provider() {
     return 1
   fi
   echo "OK: gRPC"
+
+  external_port=$(get_free_port)
+  go run ./sample/server/http/main.go --port "$external_port" >/dev/null 2>&1 &
+  external_pid=$!
+
+  if ! wait_http_ready "$external_port"; then
+    echo "FAIL: external HTTP server did not become ready for provider=$p" >&2
+    return 1
+  fi
+
+  "$DEVSWITCH_BIN" app register --port "$external_port" --label "${p}-external-${suffix}" >/dev/null
+  if ! wait_http_ready "$port"; then
+    echo "FAIL: external register check failed for provider=$p" >&2
+    return 1
+  fi
+  ext_http_body="$(curl -fsS "http://localhost:${port}")"
+  if [[ "$ext_http_body" != *"Hello, World!"* ]]; then
+    echo "FAIL: unexpected response after external register for provider=$p: $ext_http_body" >&2
+    return 1
+  fi
+  echo "OK: external register"
+
+  if [[ -n "$external_pid" ]]; then
+    kill "$external_pid" >/dev/null 2>&1 || true
+    external_pid=""
+  fi
 
   cleanup
   echo "PASS: provider=$p"

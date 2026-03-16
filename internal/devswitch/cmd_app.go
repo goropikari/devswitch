@@ -11,6 +11,7 @@ import (
 )
 
 var appLabel string
+var registerLabel string
 
 type StartAppParams struct {
 	Label   string
@@ -123,19 +124,20 @@ func StopAppServer(port int) error {
 
 	wasActive := s.Port == currentActive()
 
-	// Kill the process.
+	// Kill the process if managed.
 	if s.PID > 0 {
 		p, err := os.FindProcess(s.PID)
 		if err == nil {
 			_ = p.Kill()
 		}
+		// Fallback to fuser if port is still bound or just as extra precaution.
+		_ = exec.Command("fuser", "-k", fmt.Sprintf("%d/tcp", s.Port)).Run()
 	}
-	// Fallback to fuser if port is still bound or just as extra precaution.
-	_ = exec.Command("fuser", "-k", fmt.Sprintf("%d/tcp", s.Port)).Run()
 
 	// Mark as stopped in registry.
 	if sIdx != -1 {
-		servers[sIdx].PID = 0
+		// Remove from registry so it is no longer managed/proxied.
+		servers = append(servers[:sIdx], servers[sIdx+1:]...)
 		_ = saveRegistry(servers)
 	}
 
@@ -144,7 +146,7 @@ func StopAppServer(port int) error {
 		remaining, _ := loadServers()
 		var others []Server
 		for _, r := range remaining {
-			if r.Port != s.Port && r.PID > 0 && pidAlive(r.PID) {
+			if r.Port != s.Port {
 				others = append(others, r)
 			}
 		}
@@ -161,6 +163,68 @@ func StopAppServer(port int) error {
 
 	return nil
 }
+
+var appRegisterCmd = &cobra.Command{
+	Use:   "register",
+	Short: "register an existing app process",
+	Long:  `Register an already running app process (e.g. started manually) to devswitch.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if !proxyAlive() {
+			return fmt.Errorf("proxy server is not running; run `devswitch proxy start` first")
+		}
+
+		if registerPort == 0 {
+			return fmt.Errorf("--port is required")
+		}
+
+		if !portAlive(registerPort) {
+			return fmt.Errorf("port %d is not listening", registerPort)
+		}
+
+		label := strings.TrimSpace(registerLabel)
+		if label == "" {
+			label = randomName()
+		}
+
+		// Validate uniqueness by port/label and clean dead entries.
+		existing, _ := loadServers()
+		for _, s := range existing {
+			if s.Port == registerPort {
+				warnErr("update proxy route", updateProxyRoute(registerPort))
+				setActive(registerPort)
+				fmt.Printf("port %d is already registered (label: %s)\n", registerPort, s.Label)
+				fmt.Printf("switched active to port %d\n", registerPort)
+				return nil
+			}
+			if s.Label == label {
+				return fmt.Errorf("label %q is already used by port %d", label, s.Port)
+			}
+		}
+
+		s := Server{
+			Port:    registerPort,
+			PID:     0, // 0 indicates external process
+			Branch:  currentBranchName(),
+			Label:   label,
+			Command: "external",
+			Args:    nil,
+		}
+
+		if err := addServer(s); err != nil {
+			return err
+		}
+
+		if err := updateProxyRoute(registerPort); err != nil {
+			return err
+		}
+		setActive(registerPort)
+
+		fmt.Printf("registered external app on port %d (label: %s)\n", registerPort, label)
+		return nil
+	},
+}
+
+var registerPort int
 
 var appCmd = &cobra.Command{
 	Use:   "app",

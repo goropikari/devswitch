@@ -194,7 +194,7 @@ func loadServers() ([]Server, error) {
 	}
 	defer file.Close()
 
-	var servers []Server
+	var allServers []Server
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -210,7 +210,7 @@ func loadServers() ([]Server, error) {
 		}
 
 		fields := strings.Fields(meta)
-		if len(fields) < 2 {
+		if len(fields) < 4 {
 			continue
 		}
 
@@ -234,7 +234,7 @@ func loadServers() ([]Server, error) {
 			baseArgs = cmdParts[1:]
 		}
 
-		servers = append(servers, Server{
+		allServers = append(allServers, Server{
 			Port:    port,
 			PID:     pid,
 			Branch:  branch,
@@ -246,7 +246,30 @@ func loadServers() ([]Server, error) {
 		})
 	}
 
-	return servers, nil
+	// Filter dead servers
+	var liveServers []Server
+	dirty := false
+	for _, s := range allServers {
+		isAlive := false
+		if s.PID > 0 {
+			isAlive = pidAlive(s.PID)
+		} else {
+			// External process: check if port is listening
+			isAlive = portAlive(s.Port)
+		}
+
+		if isAlive {
+			liveServers = append(liveServers, s)
+		} else {
+			dirty = true
+		}
+	}
+
+	if dirty {
+		_ = saveRegistry(liveServers)
+	}
+
+	return liveServers, nil
 }
 
 func saveRegistry(servers []Server) error {
@@ -396,6 +419,12 @@ func Execute() error {
 	appStartCmd.Flags().StringVarP(&appLabel, "label", "l", "", "label for this app process (default: random name)")
 	appCmd.AddCommand(appStartCmd)
 	appCmd.AddCommand(appStopCmd)
+
+	appRegisterCmd.Flags().IntVarP(&registerPort, "port", "p", 0, "port of the existing app process")
+	appRegisterCmd.Flags().StringVarP(&registerLabel, "label", "l", "", "label for this app process")
+	_ = appRegisterCmd.MarkFlagRequired("port")
+	appCmd.AddCommand(appRegisterCmd)
+
 	proxyStartCmd.Flags().BoolVar(&proxyDaemon, "daemon", true, "")
 	proxyStartCmd.Flags().StringVar(&proxyProvider, "provider", "", "reverse proxy provider (native)")
 	proxyStartCmd.Flags().StringVarP(&proxyBindHost, "bind", "b", "", "bind host (default: localhost)")
