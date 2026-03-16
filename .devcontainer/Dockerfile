@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y \
     protobuf-compiler \
 	direnv \
     socat \
-    nginx
+    nginx \
+    neovim
 
 RUN echo 'eval "$(direnv hook bash)"' >> /home/vscode/.bashrc && \
     echo 'alias gst="git status"' >> /home/vscode/.bashrc && \
