@@ -89,10 +89,10 @@ func currentReverseProxy() (ReverseProxy, error) {
 	return newReverseProxy(resolveCurrentProxyProviderName())
 }
 
-func updateProxyRoute(port int, grpc bool) error {
+func updateProxyRoute(port int) error {
 	p, err := currentReverseProxy()
 	if err != nil {
 		return err
 	}
-	return p.UpdateRoute(port, grpc)
+	return p.UpdateRoute(port)
 }

@@ -91,8 +91,7 @@ func (p nativeProxy) Stop() error {
 	return stopProxy(p.env)
 }
 
-func (p nativeProxy) UpdateRoute(port int, grpc bool) error {
-	_ = grpc // native proxy は L4 転送のため h2c/http の区別は不要
+func (p nativeProxy) UpdateRoute(port int) error {
 	// native proxy は毎リクエストで Env.GetActive() を参照するため
 	// SetActive を呼ぶだけでルーティングが即座に切り替わる。
 	p.env.SetActive(port)

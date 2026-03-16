@@ -109,7 +109,7 @@ run_for_provider() {
   fi
   echo "OK: HTTP"
 
-  "$DEVSWITCH_BIN" app start --grpc --port-arg --port --label "${p}-grpc-${suffix}" -- go -C ./sample/server/grpc run main.go >/dev/null
+  "$DEVSWITCH_BIN" app start --port-arg --port --label "${p}-grpc-${suffix}" -- go -C ./sample/server/grpc run main.go >/dev/null
   if ! wait_grpc_ready "$port"; then
     echo "FAIL: gRPC list check failed for provider=$p" >&2
     return 1

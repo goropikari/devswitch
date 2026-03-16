@@ -7,6 +7,6 @@ type ReverseProxy interface {
 	Name() string
 	Start(opts provider.StartOptions) (provider.StartResult, error)
 	Stop() error
-	UpdateRoute(port int, grpc bool) error
+	UpdateRoute(port int) error
 	LogPath() string
 }

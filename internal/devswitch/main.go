@@ -22,7 +22,6 @@ type Server struct {
 	Port    int
 	PID     int
 	Branch  string
-	GRPC    bool
 	Label   string
 	Command string
 	Args    []string
@@ -33,7 +32,6 @@ type Server struct {
 // start-server の起動オプションを受け取るフラグ変数。
 var portEnv string
 var portArg string
-var grpcMode bool
 var proxyDaemon bool
 var proxyProvider string
 var proxyBindHost string
@@ -217,14 +215,13 @@ func loadServers() ([]Server, error) {
 		port, _ := strconv.Atoi(fields[0])
 		pid, _ := strconv.Atoi(fields[1])
 		branch, _ := url.PathUnescape(fields[2])
-		grpc, _ := strconv.ParseBool(fields[3])
-		label, _ := url.PathUnescape(fields[4])
+		label, _ := url.PathUnescape(fields[3])
 
 		pEnv := ""
 		pArg := ""
-		if len(fields) >= 7 {
-			pEnv, _ = url.PathUnescape(fields[5])
-			pArg, _ = url.PathUnescape(fields[6])
+		if len(fields) >= 6 {
+			pEnv, _ = url.PathUnescape(fields[4])
+			pArg, _ = url.PathUnescape(fields[5])
 		}
 
 		cmdParts := strings.Fields(fullCmd)
@@ -239,7 +236,6 @@ func loadServers() ([]Server, error) {
 			Port:    port,
 			PID:     pid,
 			Branch:  branch,
-			GRPC:    grpc,
 			Label:   label,
 			Command: baseCmd,
 			Args:    baseArgs,
@@ -269,8 +265,8 @@ func saveRegistry(servers []Server) error {
 			fullCmd += " " + strings.Join(s.Args, " ")
 		}
 
-		_, _ = fmt.Fprintf(f, "%d %d %s %t %s %s %s",
-			s.Port, s.PID, sanitizeFieldValue(s.Branch), s.GRPC,
+		_, _ = fmt.Fprintf(f, "%d %d %s %s %s %s",
+			s.Port, s.PID, sanitizeFieldValue(s.Branch),
 			sanitizeFieldValue(s.Label), sanitizeFieldValue(s.PortEnv), sanitizeFieldValue(s.PortArg))
 
 		if strings.TrimSpace(fullCmd) != "" {
@@ -394,7 +390,6 @@ func Execute() error {
 	// ルートコマンドへサブコマンドを登録して実行する。
 	appStartCmd.Flags().StringVar(&portEnv, "port-env", "", "environment variable name to pass the port to the app (e.g. PORT)")
 	appStartCmd.Flags().StringVar(&portArg, "port-arg", "", "flag name to pass the port as a CLI argument (e.g. --port)")
-	appStartCmd.Flags().BoolVar(&grpcMode, "grpc", false, "treat the app as a gRPC server")
 	appStartCmd.Flags().StringVarP(&appLabel, "label", "l", "", "label for this app process (default: random name)")
 	appCmd.AddCommand(appStartCmd)
 	appCmd.AddCommand(appStopCmd)

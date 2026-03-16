@@ -6,7 +6,7 @@ type proxyContract interface {
 	Name() string
 	Start(opts StartOptions) (StartResult, error)
 	Stop() error
-	UpdateRoute(port int, grpc bool) error
+	UpdateRoute(port int) error
 	LogPath() string
 }
 

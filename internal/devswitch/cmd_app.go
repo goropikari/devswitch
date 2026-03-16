@@ -13,12 +13,11 @@ import (
 var appLabel string
 
 type StartAppParams struct {
-	Label    string
-	Command  string
-	Args     []string
-	PortEnv  string
-	PortArg  string
-	GRPCMode bool
+	Label   string
+	Command string
+	Args    []string
+	PortEnv string
+	PortArg string
 }
 
 func StartAppServer(params StartAppParams) (int, error) {
@@ -95,14 +94,13 @@ func StartAppServer(params StartAppParams) (int, error) {
 		Port:    port,
 		PID:     c.Process.Pid,
 		Branch:  currentBranchName(),
-		GRPC:    params.GRPCMode,
 		Label:   label,
 		Command: command,     // Base command
 		Args:    params.Args, // Base args
 		PortEnv: params.PortEnv,
 		PortArg: params.PortArg,
 	}))
-	warnErr("update proxy route", updateProxyRoute(port, params.GRPCMode))
+	warnErr("update proxy route", updateProxyRoute(port))
 	setActive(port)
 
 	return port, nil
@@ -152,7 +150,7 @@ func StopAppServer(port int) error {
 		}
 		if len(others) > 0 {
 			next := others[len(others)-1]
-			warnErr("update proxy route", updateProxyRoute(next.Port, next.GRPC))
+			warnErr("update proxy route", updateProxyRoute(next.Port))
 			setActive(next.Port)
 			fmt.Printf("switched active to port %d (%s, branch %s)\n", next.Port, next.Label, formatBranchLabel(next.Branch))
 		} else {
@@ -196,12 +194,11 @@ Examples:
 		}
 
 		port, err := StartAppServer(StartAppParams{
-			Label:    appLabel,
-			Command:  args[0],
-			Args:     args[1:],
-			PortEnv:  portEnv,
-			PortArg:  portArg,
-			GRPCMode: grpcMode,
+			Label:   appLabel,
+			Command: args[0],
+			Args:    args[1:],
+			PortEnv: portEnv,
+			PortArg: portArg,
 		})
 		if err != nil {
 			return err
@@ -230,4 +227,3 @@ var appStopCmd = &cobra.Command{
 		return nil
 	},
 }
-

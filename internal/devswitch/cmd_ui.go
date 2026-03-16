@@ -93,17 +93,15 @@ func handlePostActivate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	port := s.Port
-	grpc := s.GRPC
 
 	// If the server is not running, restart it.
 	if s.PID == 0 || !pidAlive(s.PID) {
 		newPort, err := StartAppServer(StartAppParams{
-			Label:    s.Label,
-			Command:  s.Command,
-			Args:     s.Args,
-			PortEnv:  s.PortEnv,
-			PortArg:  s.PortArg,
-			GRPCMode: s.GRPC,
+			Label:   s.Label,
+			Command: s.Command,
+			Args:    s.Args,
+			PortEnv: s.PortEnv,
+			PortArg: s.PortArg,
 		})
 		if err != nil {
 			http.Error(w, "failed to restart server: "+err.Error(), http.StatusInternalServerError)
@@ -112,7 +110,7 @@ func handlePostActivate(w http.ResponseWriter, r *http.Request) {
 		port = newPort
 	}
 
-	if err := updateProxyRoute(port, grpc); err != nil {
+	if err := updateProxyRoute(port); err != nil {
 		http.Error(w, "failed to update proxy route: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -138,11 +136,10 @@ func handlePostStop(w http.ResponseWriter, r *http.Request) {
 
 func handlePostStart(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Label    string `json:"label"`
-		Command  string `json:"command"`
-		PortEnv  string `json:"portEnv"`
-		PortArg  string `json:"portArg"`
-		GRPC     bool   `json:"grpc"`
+		Label   string `json:"label"`
+		Command string `json:"command"`
+		PortEnv string `json:"portEnv"`
+		PortArg string `json:"portArg"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -156,12 +153,11 @@ func handlePostStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := StartAppServer(StartAppParams{
-		Label:    req.Label,
-		Command:  parts[0],
-		Args:     parts[1:],
-		PortEnv:  req.PortEnv,
-		PortArg:  req.PortArg,
-		GRPCMode: req.GRPC,
+		Label:   req.Label,
+		Command: parts[0],
+		Args:    parts[1:],
+		PortEnv: req.PortEnv,
+		PortArg: req.PortArg,
 	})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

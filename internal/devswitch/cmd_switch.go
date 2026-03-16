@@ -18,7 +18,7 @@ var switchCmd = &cobra.Command{
 			return err
 		}
 
-		warnErr("update proxy route", updateProxyRoute(s.Port, s.GRPC))
+		warnErr("update proxy route", updateProxyRoute(s.Port))
 		setActive(s.Port)
 		fmt.Println("Switched to:")
 		fmt.Printf("Branch: %s\n", formatBranchLabel(s.Branch))
