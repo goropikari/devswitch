@@ -15,3 +15,5 @@ test-providers-native:
 install-tool:
 	go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
 	curl -L https://github.com/traefik/traefik/releases/download/v3.6.10/traefik_v3.6.10_linux_amd64.tar.gz | sudo tar xz -C /usr/local/bin traefik
+	npm install -g portless
+	npm install -g @google/gemini-cli

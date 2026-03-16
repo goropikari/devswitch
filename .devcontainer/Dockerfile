@@ -11,4 +11,6 @@ RUN apt-get update && apt-get install -y \
     nginx
 
 RUN echo 'eval "$(direnv hook bash)"' >> /home/vscode/.bashrc && \
+    echo 'alias gst="git status"' >> /home/vscode/.bashrc && \
+    echo 'alias gb="git branch"' >> /home/vscode/.bashrc && \
 	chown vscode:vscode /home/vscode/.bashrc
