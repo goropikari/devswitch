@@ -25,6 +25,9 @@ type Server struct {
 	GRPC    bool
 	Label   string
 	Command string
+	Args    []string
+	PortEnv string
+	PortArg string
 }
 
 // start-server の起動オプションを受け取るフラグ変数。
@@ -176,6 +179,9 @@ func freePort() int {
 
 // PID が生存しているかを判定する。
 func pidAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
 	return syscall.Kill(pid, 0) == nil
 }
 
@@ -196,14 +202,11 @@ func loadServers() ([]Server, error) {
 			continue
 		}
 
-		meta := line
-		command := ""
-		if parts := strings.SplitN(line, "\t", 2); len(parts) == 2 {
-			meta = strings.TrimSpace(parts[0])
-			command = strings.TrimSpace(parts[1])
-		}
-		if dec, err := url.PathUnescape(command); err == nil {
-			command = dec
+		parts := strings.SplitN(line, "\t", 2)
+		meta := strings.TrimSpace(parts[0])
+		fullCmd := ""
+		if len(parts) == 2 {
+			fullCmd, _ = url.PathUnescape(strings.TrimSpace(parts[1]))
 		}
 
 		fields := strings.Fields(meta)
@@ -213,38 +216,41 @@ func loadServers() ([]Server, error) {
 
 		port, _ := strconv.Atoi(fields[0])
 		pid, _ := strconv.Atoi(fields[1])
-		branch := "-"
-		grpc := false
-		label := "-"
-		if len(fields) >= 3 {
-			branch = fields[2]
-		}
-		if dec, err := url.PathUnescape(branch); err == nil {
-			branch = dec
-		}
-		if len(fields) >= 4 {
-			if parsed, err := strconv.ParseBool(fields[3]); err == nil {
-				grpc = parsed
-			}
-		}
-		if len(fields) >= 5 {
-			label = fields[4]
-		}
-		if dec, err := url.PathUnescape(label); err == nil {
-			label = dec
-		}
-		if !pidAlive(pid) {
-			continue
+		branch, _ := url.PathUnescape(fields[2])
+		grpc, _ := strconv.ParseBool(fields[3])
+		label, _ := url.PathUnescape(fields[4])
+
+		pEnv := ""
+		pArg := ""
+		if len(fields) >= 7 {
+			pEnv, _ = url.PathUnescape(fields[5])
+			pArg, _ = url.PathUnescape(fields[6])
 		}
 
-		servers = append(servers, Server{Port: port, PID: pid, Branch: branch, GRPC: grpc, Label: label, Command: command})
+		cmdParts := strings.Fields(fullCmd)
+		var baseCmd string
+		var baseArgs []string
+		if len(cmdParts) > 0 {
+			baseCmd = cmdParts[0]
+			baseArgs = cmdParts[1:]
+		}
+
+		servers = append(servers, Server{
+			Port:    port,
+			PID:     pid,
+			Branch:  branch,
+			GRPC:    grpc,
+			Label:   label,
+			Command: baseCmd,
+			Args:    baseArgs,
+			PortEnv: pEnv,
+			PortArg: pArg,
+		})
 	}
 
-	_ = saveRegistry(servers)
 	return servers, nil
 }
 
-// サーバー一覧をレジストリに保存する（tmp ファイル経由で原子的に更新）。
 func saveRegistry(servers []Server) error {
 	if err := ensureTmpDir(); err != nil {
 		return err
@@ -258,9 +264,17 @@ func saveRegistry(servers []Server) error {
 	defer f.Close()
 
 	for _, s := range servers {
-		_, _ = fmt.Fprintf(f, "%d %d %s %t %s", s.Port, s.PID, sanitizeFieldValue(s.Branch), s.GRPC, sanitizeFieldValue(s.Label))
-		if strings.TrimSpace(s.Command) != "" {
-			_, _ = fmt.Fprintf(f, "\t%s", sanitizeFieldValue(s.Command))
+		fullCmd := s.Command
+		if len(s.Args) > 0 {
+			fullCmd += " " + strings.Join(s.Args, " ")
+		}
+
+		_, _ = fmt.Fprintf(f, "%d %d %s %t %s %s %s",
+			s.Port, s.PID, sanitizeFieldValue(s.Branch), s.GRPC,
+			sanitizeFieldValue(s.Label), sanitizeFieldValue(s.PortEnv), sanitizeFieldValue(s.PortArg))
+
+		if strings.TrimSpace(fullCmd) != "" {
+			_, _ = fmt.Fprintf(f, "\t%s", sanitizeFieldValue(fullCmd))
 		}
 		_, _ = fmt.Fprintln(f)
 	}
@@ -400,6 +414,9 @@ func Execute() error {
 	listCmd.Flags().BoolVar(&listJSON, "json", false, "output as JSON")
 	rootCmd.AddCommand(switchCmd)
 	rootCmd.AddCommand(cleanupCmd)
+
+	uiCmd.Flags().StringVarP(&uiPort, "port", "p", "9001", "UI listen port")
+	rootCmd.AddCommand(uiCmd)
 
 	return rootCmd.Execute()
 }

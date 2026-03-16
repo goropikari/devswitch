@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>devswitch UI</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        .active-row { border: 2px solid var(--pico-primary); }
+        .active-mark { font-weight: bold; color: var(--pico-primary); }
+        .grid-form { margin-top: 2rem; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <hgroup>
+            <h1>devswitch</h1>
+            <p>Manage your dev servers and proxy</p>
+        </hgroup>
+        
+        <section>
+            <h2>App Processes</h2>
+            <table id="server-table">
+                <thead>
+                    <tr>
+                        <th>Label</th>
+                        <th>Branch</th>
+                        <th>Port</th>
+                        <th>PID</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="server-list">
+                    <!-- Loaded via JS -->
+                </tbody>
+            </table>
+            <button class="secondary" onclick="fetchServers()">Refresh</button>
+        </section>
+
+        <section class="grid-form">
+            <h2>Start New App</h2>
+            <form id="start-form">
+                <div class="grid">
+                    <label>
+                        Label
+                        <input type="text" name="label" placeholder="Optional">
+                    </label>
+                    <label>
+                        Command
+                        <input type="text" name="command" placeholder="e.g. go run main.go" required>
+                    </label>
+                </div>
+                <div class="grid">
+                    <label>
+                        Port Env
+                        <input type="text" name="portEnv" placeholder="e.g. PORT" value="PORT">
+                    </label>
+                    <label>
+                        Port Arg
+                        <input type="text" name="portArg" placeholder="e.g. --port">
+                    </label>
+                </div>
+                <label>
+                    <input type="checkbox" name="grpc"> gRPC Mode
+                </label>
+                <button type="submit">Start Server</button>
+            </form>
+        </section>
+    </main>
+
+    <script>
+        async function fetchServers() {
+            const resp = await fetch('/api/servers');
+            const data = await resp.json();
+            const list = document.getElementById('server-list');
+            list.innerHTML = '';
+            
+            data.servers.forEach(s => {
+                const isActive = s.Port === data.active && s.running;
+                const row = document.createElement('tr');
+                if (isActive) row.classList.add('active-row');
+                
+                row.innerHTML = `
+                    <td>${s.Label}</td>
+                    <td>${s.Branch}</td>
+                    <td>${s.running ? s.Port : '-'}</td>
+                    <td>${s.running ? s.PID : '-'}</td>
+                    <td>
+                        ${s.running ? '<span class="active-mark">● Running</span>' : '<span style="color:gray">○ Stopped</span>'}
+                        ${isActive ? ' <strong>(Active)</strong>' : ''}
+                    </td>
+                    <td>
+                        <div role="group">
+                            <button class="${isActive ? '' : 'outline'}" onclick="activateServer('${s.Label}')">
+                                ${s.running ? 'Activate' : 'Restart & Activate'}
+                            </button>
+                            <button class="outline contrast" onclick="stopServer(${s.Port})" ${s.running ? '' : 'disabled'}>Stop</button>
+                        </div>
+                    </td>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        async function activateServer(label) {
+            const resp = await fetch('/api/activate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ label })
+            });
+            if (resp.ok) {
+                // Give the server a moment to start before refreshing
+                setTimeout(fetchServers, 500);
+            } else {
+                const err = await resp.text();
+                alert('Activate Error: ' + err);
+                fetchServers();
+            }
+        }
+
+        async function stopServer(port) {
+            if (!confirm(`Stop server on port ${port}?`)) return;
+            const resp = await fetch('/api/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ port })
+            });
+            if (!resp.ok) {
+                const err = await resp.text();
+                alert('Stop Error: ' + err);
+            }
+            fetchServers();
+        }
+
+        document.getElementById('start-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const body = {
+                label: formData.get('label'),
+                command: formData.get('command'),
+                portEnv: formData.get('portEnv'),
+                portArg: formData.get('portArg'),
+                grpc: e.target.grpc.checked
+            };
+            
+            const resp = await fetch('/api/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            
+            if (resp.ok) {
+                e.target.reset();
+                fetchServers();
+            } else {
+                const err = await resp.text();
+                alert('Error: ' + err);
+            }
+        };
+
+        fetchServers();
+        setInterval(fetchServers, 5000);
+    </script>
+</body>
+</html>
