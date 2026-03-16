@@ -11,5 +11,3 @@ type proxyContract interface {
 }
 
 var _ proxyContract = (*nativeProxy)(nil)
-var _ proxyContract = (*traefikProxy)(nil)
-var _ proxyContract = (*socatProxy)(nil)

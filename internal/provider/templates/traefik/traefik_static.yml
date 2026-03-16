@@ -1,8 +1,0 @@
-entryPoints:
-  web:
-    address: "${BIND_HOST}:${PORT}"
-
-providers:
-  file:
-    filename: "${DYNAMIC_CONFIG}"
-    watch: true

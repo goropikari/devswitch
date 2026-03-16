@@ -27,9 +27,7 @@ Listen port priority (highest to lowest):
 
 The provider can be selected with --provider or DEVSWITCH_PROXY_PROVIDER:
 
-  native   pure-Go HTTP/1.1 + gRPC reverse proxy (default, no extra binary needed)
-  traefik  Traefik-based proxy  (requires traefik binary)
-  socat    TCP-level forwarder  (requires socat binary)`,
+  native   pure-Go HTTP/1.1 + gRPC reverse proxy (default, no extra binary needed)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if proxyPort != "" {
 			os.Setenv("DEVSWITCH_PORT", proxyPort)

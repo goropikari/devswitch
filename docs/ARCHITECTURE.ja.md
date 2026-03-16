@@ -6,7 +6,7 @@
 （例: `localhost:9000`）を、起動中の複数アプリサーバーのうち
 任意の 1 台へ切り替えてルーティングするローカル開発用スイッチャーです。
 
-3 種類のリバースプロキシバックエンドをサポートします: `native`（純 Go、デフォルト）、`traefik`、`socat`。
+組み込みのリバースプロキシバックエンドをサポートします: `native`（純 Go）。
 
 ## 全体フロー
 
@@ -16,7 +16,7 @@
 4. 停止・初期化（`devswitch app stop`、`devswitch cleanup`）
 
 クライアントの通信は常にリバースプロキシを経由します。
-native/socat はアクティブポートをインメモリで管理し、traefik は dynamic config を書き換えることで即座にルーティング変更を適用します。
+インメモリの状態を書き換えることで即座にルーティング変更を適用します。
 
 ## 主要コンポーネント
 
@@ -26,7 +26,6 @@ native/socat はアクティブポートをインメモリで管理し、traefik
 
 - 実行時 tmp ディレクトリの決定と管理
 - 起動済みサーバー（label + port + PID + branch + command）の追跡
-- プロバイダー設定ファイルの生成（traefik のみ）
 - アクティブ backend の切り替え
 - proxy プロセスの起動/停止
 
@@ -46,9 +45,8 @@ native/socat はアクティブポートをインメモリで管理し、traefik
 
 | プロバイダー | 実装                                          | 追加要件           |
 | ------------ | --------------------------------------------- | ------------------ |
-| `native`     | 純 Go `net/http` リバースプロキシ（h2c 対応） | なし               |
-| `traefik`    | devswitch が管理する Traefik プロセス         | `traefik` バイナリ |
-| `socat`      | TCP レベルフォワーダー                        | `socat` コマンド   |
+| `native`    | 純 Go `net/http` プロキシ (h2c 対応) | なし                |
+
 
 全プロバイダーは `internal/devswitch/proxy_interface.go` で定義する `ReverseProxy` インターフェースを実装します:
 
@@ -74,8 +72,6 @@ type ReverseProxy interface {
 | `proxy.log`             | proxy ログ（daemon 時のみ）                             |
 | `proxy.port`            | `proxy start` で確定した listen port                    |
 | `proxy.provider`        | 使用中のプロバイダー名                                  |
-| `devswitch_static.yml`  | Traefik static config（traefik のみ）                   |
-| `devswitch_dynamic.yml` | Traefik dynamic routing config（traefik のみ）          |
 
 ## 実行ディレクトリ戦略
 
@@ -104,7 +100,6 @@ proxy が listen していない場合、コマンドはエラーを返して終
 `app start` に `--grpc` を付けた場合:
 
 - native: アップストリーム接続に h2c トランスポートを使用
-- traefik: dynamic service の scheme を `http` から `h2c` へ変更
 - proxy ポート経由で `grpcurl -plaintext` によるテストが可能
 
 ## データ/制御シーケンス

@@ -6,7 +6,7 @@ Japanese docs are available in [README.ja.md](README.ja.md).
 `devswitch` is a CLI tool for running multiple local development servers and
 switching traffic from one stable endpoint to the active target.
 
-It uses a reverse proxy (native/Traefik/socat) to switch HTTP / gRPC backends instantly.
+It uses a built-in reverse proxy (native) to switch HTTP / gRPC backends instantly.
 
 ## Architecture
 
@@ -17,7 +17,7 @@ client
 localhost:9000
   |
   v
-reverse proxy (native / Traefik / socat)
+built-in reverse proxy (native)
   |
   v
 active dev server
@@ -41,8 +41,6 @@ Per-provider extra requirements:
 | Provider           | Requirement                                                                       |
 | ------------------ | --------------------------------------------------------------------------------- |
 | `native` (default) | none (pure Go)                                                                    |
-| `traefik`          | [Traefik binary](https://doc.traefik.io/traefik/getting-started/install-traefik/) |
-| `socat`            | socat command                                                                     |
 
 ## Installation
 
@@ -64,7 +62,7 @@ go install github.com/goropikari/devswitch/cmd/devswitch@latest
 | -------------------------- | --------------------------------------------- | --------------------------- | ---------------------------- |
 | `DEVSWITCH_PORT`           | proxy listen port                             | `9000`                      | proxy start, app start, info |
 | `DEVSWITCH_BIND_HOST`      | proxy bind host                               | `localhost`                 | proxy start, info            |
-| `DEVSWITCH_PROXY_PROVIDER` | proxy provider (`native`\|`traefik`\|`socat`) | `native`                    | proxy start, info            |
+| `DEVSWITCH_PROXY_PROVIDER` | proxy provider (`native`) | `native`                    | proxy start, info            |
 | `DEVSWITCH_TMPDIR`         | directory for state/log/config files          | auto-generated under `/tmp` | all commands                 |
 
 ## Usage
@@ -86,9 +84,6 @@ DEVSWITCH_PORT=8080 devswitch proxy start
 
 # bind to all interfaces (for devcontainer → host access)
 devswitch proxy start -b 0.0.0.0
-
-# select provider
-devswitch proxy start --provider traefik
 
 # stop
 devswitch proxy stop
@@ -264,7 +259,6 @@ All files are created under `<tmpdir>`:
 
 | Path                    | Purpose                                      |
 | ----------------------- | -------------------------------------------- |
-| `devswitch_static.yml`  | Traefik static config                        |
 | `devswitch_dynamic.yml` | routing config                               |
 | `devswitch_servers`     | server registry                              |
 | `devswitch_active`      | active target port                           |

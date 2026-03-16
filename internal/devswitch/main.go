@@ -300,7 +300,7 @@ func currentActive() int {
 	return p
 }
 
-// Traefik dynamic 設定を対象ポート向けに更新する。
+// 対象ポート向けにプロバイダー設定を更新する。
 // promptui でサーバーを選択させる。
 func selectServer(servers []Server) (Server, error) {
 	if len(servers) == 0 {
@@ -345,7 +345,7 @@ var rootCmd = &cobra.Command{
 Environment variables:
   DEVSWITCH_PORT            proxy listen port (default: 9000)            [proxy start, app start, info]
   DEVSWITCH_BIND_HOST       proxy bind host   (default: localhost)       [proxy start, info]
-  DEVSWITCH_PROXY_PROVIDER  proxy provider    (native|traefik|socat, default: native) [proxy start, info]
+  DEVSWITCH_PROXY_PROVIDER  proxy provider    (native, default: native) [proxy start, info]
   DEVSWITCH_TMPDIR          override runtime directory path              [all commands]
 `,
 }
@@ -385,7 +385,7 @@ func Execute() error {
 	appCmd.AddCommand(appStartCmd)
 	appCmd.AddCommand(appStopCmd)
 	proxyStartCmd.Flags().BoolVar(&proxyDaemon, "daemon", true, "")
-	proxyStartCmd.Flags().StringVar(&proxyProvider, "provider", "", "reverse proxy provider (native|traefik|socat)")
+	proxyStartCmd.Flags().StringVar(&proxyProvider, "provider", "", "reverse proxy provider (native)")
 	proxyStartCmd.Flags().StringVarP(&proxyBindHost, "bind", "b", "", "bind host (default: localhost)")
 	proxyStartCmd.Flags().StringVarP(&proxyPort, "port", "p", "", "proxy listen port (default: 9000)")
 	proxyCmd.AddCommand(proxyStartCmd)

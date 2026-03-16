@@ -12,9 +12,7 @@ import (
 )
 
 const (
-	Traefik = "traefik"
-	Socat   = "socat"
-	Native  = "native"
+	Native = "native"
 )
 
 type StartOptions struct {
@@ -44,11 +42,7 @@ type Env struct {
 
 func New(name string, env Env) (any, error) {
 	switch strings.ToLower(strings.TrimSpace(name)) {
-	case Traefik:
-		return traefikProxy{env: env}, nil
-	case Socat:
-		return socatProxy{env: env}, nil
-	case Native:
+	case "", Native:
 		return nativeProxy{env: env}, nil
 	default:
 		return nil, fmt.Errorf("unsupported proxy provider: %s", name)

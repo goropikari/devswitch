@@ -5,7 +5,7 @@
 `devswitch` is a local development switcher that routes one stable endpoint
 (e.g. `localhost:9000`) to one of many running app servers.
 
-It supports three reverse proxy backends: `native` (pure-Go, default), `traefik`, and `socat`.
+It supports a built-in reverse proxy backend: `native` (pure-Go).
 
 ## High Level Flow
 
@@ -15,7 +15,7 @@ It supports three reverse proxy backends: `native` (pure-Go, default), `traefik`
 4. Stop targets or cleanup (`devswitch app stop`, `devswitch cleanup`)
 
 Client traffic always goes through the reverse proxy. Routing changes are applied
-immediately — native/socat by updating in-memory state, traefik by rewriting its dynamic config.
+immediately by updating in-memory state.
 
 ## Main Components
 
@@ -25,7 +25,6 @@ Responsibilities:
 
 - Choose and manage runtime temp directory
 - Track started servers (label + port + PID + branch + command)
-- Write provider config files (traefik only)
 - Switch active backend
 - Start/stop proxy process
 
@@ -46,8 +45,6 @@ Key commands:
 | Provider  | Implementation                                    | Extra requirement |
 | --------- | ------------------------------------------------- | ----------------- |
 | `native`  | pure-Go `net/http` reverse proxy with h2c support | none              |
-| `traefik` | Traefik process managed by devswitch              | `traefik` binary  |
-| `socat`   | TCP-level forwarder                               | `socat` command   |
 
 All providers implement the `ReverseProxy` interface defined in `internal/devswitch/proxy_interface.go`:
 
@@ -73,8 +70,6 @@ All state files are under runtime tmp dir (`DEVSWITCH_TMPDIR` override possible)
 | `proxy.log`             | proxy logs (daemon mode only)                          |
 | `proxy.port`            | listen port persisted by `proxy start`                 |
 | `proxy.provider`        | current provider name                                  |
-| `devswitch_static.yml`  | Traefik static config (traefik provider only)          |
-| `devswitch_dynamic.yml` | Traefik dynamic routing config (traefik provider only) |
 
 ## Runtime Directory Strategy
 
@@ -103,7 +98,6 @@ If the proxy is not listening, the command returns an error.
 When `--grpc` is passed to `app start`:
 
 - native: upstream connection uses h2c transport
-- traefik: dynamic service scheme switches from `http` to `h2c`
 - Traffic can be tested with `grpcurl -plaintext` via the proxy port
 
 ## Data and Control Sequence
