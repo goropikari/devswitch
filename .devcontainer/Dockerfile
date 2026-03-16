@@ -6,7 +6,9 @@ RUN apt-get update && apt-get install -y \
     git \
     ripgrep \
     protobuf-compiler \
-	direnv
+	direnv \
+    socat \
+    nginx
 
 RUN echo 'eval "$(direnv hook bash)"' >> /home/vscode/.bashrc && \
 	chown vscode:vscode /home/vscode/.bashrc

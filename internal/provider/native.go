@@ -1,18 +1,12 @@
 package provider
 
 import (
-	"context"
-	"crypto/tls"
 	"fmt"
+	"io"
+	"log"
 	"net"
-	"net/http"
-	"net/http/httputil"
 	"os"
 	"os/exec"
-	"strings"
-
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 )
 
 type nativeProxy struct{ env Env }
@@ -20,58 +14,55 @@ type nativeProxy struct{ env Env }
 func (p nativeProxy) Name() string    { return Native }
 func (p nativeProxy) LogPath() string { return p.env.LogFilePath }
 
-// smartTransport は Content-Type: application/grpc のリクエストには h2c トランスポートを使い、
-// それ以外は通常の HTTP/1.1 トランスポートを使う。
-type smartTransport struct {
-	h1 *http.Transport
-	h2 *http2.Transport
-}
-
-func newSmartTransport() *smartTransport {
-	return &smartTransport{
-		h1: &http.Transport{},
-		h2: &http2.Transport{
-			AllowHTTP: true,
-			// TLS なしで h2c バックエンドへ接続する。
-			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
-				return (&net.Dialer{}).DialContext(ctx, network, addr)
-			},
-		},
-	}
-}
-
-func (t *smartTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if strings.HasPrefix(req.Header.Get("Content-Type"), "application/grpc") {
-		return t.h2.RoundTrip(req)
-	}
-	return t.h1.RoundTrip(req)
-}
-
-// RunServer は純 Go の reverse proxy サーバーを起動してブロックする。
-// HTTP/1.1 と h2c (gRPC) の両方を受け付け、Env.GetActive() が示す
-// バックエンドポートへ動的に転送する。
+// RunServer は純 Go の TCP reverse proxy サーバーを起動してブロックする。
+// Env.GetActive() が示すバックエンドポートへ動的に転送する。
 func RunServer(env Env) error {
-	transport := newSmartTransport()
-
-	rp := &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			port := env.GetActive()
-			req.URL.Scheme = "http"
-			req.URL.Host = fmt.Sprintf("127.0.0.1:%d", port)
-			req.Host = req.URL.Host
-		},
-		Transport: transport,
-		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, "bad gateway: "+err.Error(), http.StatusBadGateway)
-		},
-	}
-
-	h2s := &http2.Server{}
 	bindHost := env.BindHost
 	if bindHost == "" {
 		bindHost = "localhost"
 	}
-	return http.ListenAndServe(bindHost+":"+env.ListenPort, h2c.NewHandler(rp, h2s))
+	addr := bindHost + ":" + env.ListenPort
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("listen on %s: %w", addr, err)
+	}
+	defer l.Close()
+	log.Printf("TCP proxy listening on %s", addr)
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Printf("accept error: %v", err)
+			continue
+		}
+		go handleConn(conn, env)
+	}
+}
+
+func handleConn(clientConn net.Conn, env Env) {
+	defer clientConn.Close()
+
+	port := env.GetActive()
+	if port == 0 {
+		log.Printf("no active backend")
+		return
+	}
+	backendAddr := fmt.Sprintf("127.0.0.1:%d", port)
+	backendConn, err := net.Dial("tcp", backendAddr)
+	if err != nil {
+		log.Printf("failed to connect to backend %s: %v", backendAddr, err)
+		return
+	}
+	defer backendConn.Close()
+
+	// client -> backend
+	go func() {
+		_, _ = io.Copy(backendConn, clientConn)
+		_ = backendConn.Close()
+	}()
+	// backend -> client
+	_, _ = io.Copy(clientConn, backendConn)
+	_ = clientConn.Close()
 }
 
 func (p nativeProxy) Start(opts StartOptions) (StartResult, error) {
@@ -101,6 +92,7 @@ func (p nativeProxy) Stop() error {
 }
 
 func (p nativeProxy) UpdateRoute(port int, grpc bool) error {
+	_ = grpc // native proxy は L4 転送のため h2c/http の区別は不要
 	// native proxy は毎リクエストで Env.GetActive() を参照するため
 	// SetActive を呼ぶだけでルーティングが即座に切り替わる。
 	p.env.SetActive(port)
