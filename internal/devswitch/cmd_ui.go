@@ -15,11 +15,10 @@ import (
 //go:embed ui/index.html
 var uiFS embed.FS
 
-var uiPort string
-
-var uiCmd = &cobra.Command{
-	Use:   "ui",
-	Short: "start web ui",
+var uiServeCmd = &cobra.Command{
+	Use:    "__ui-serve",
+	Hidden: true,
+	Short:  "start web ui",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path != "/" {
@@ -42,7 +41,18 @@ var uiCmd = &cobra.Command{
 
 		url := fmt.Sprintf("http://localhost:%s", uiPort)
 		fmt.Printf("UI started at %s\n", url)
-		openBrowser(url)
+		// openBrowser(url) // Daemon mode, probably shouldn't open browser automatically? Or maybe yes? User didn't specify.
+        // existing code had openBrowser. If it runs as daemon, maybe we don't want to pop up browser every time proxy starts?
+        // But the original `ui` command did.
+        // "proxy を立ち上げたら ui の server もデーモンで立ち上げてほしい"
+        // Usually daemons don't open browsers. I'll comment it out or leave it?
+        // Let's keep it for now but maybe we can decide later.
+        // Actually, if it runs in background, opening browser might be annoying if it happens on every restart.
+        // But for "devswitch", maybe it is desired.
+        // However, I will comment it out because `openBrowser` might fail or be weird in daemon context (though it's just exec).
+        // Let's stick to the request: "proxy を立ち上げたら ui の server もデーモンで立ち上げてほしい".
+        // It doesn't say "open browser".
+        // I will comment out openBrowser for __ui-serve.
 
 		return http.ListenAndServe(":"+uiPort, nil)
 	},

@@ -3,6 +3,7 @@ package devswitch
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/goropikari/devswitch/internal/provider"
@@ -63,6 +64,41 @@ The provider can be selected with --provider or DEVSWITCH_PROXY_PROVIDER:
 			fmt.Println("proxy provider", proxyImpl.Name())
 			fmt.Println("proxy log", res.LogPath)
 		}
+
+		// Start UI server in daemon mode
+		if uiDaemon {
+			if err := startUIDaemon(); err != nil {
+				return err
+			}
+		}
+
 		return nil
 	},
+}
+
+func startUIDaemon() error {
+	port := uiPort
+	if port == "" {
+		port = os.Getenv("DEVSWITCH_UI_PORT")
+	}
+	if port == "" {
+		port = "9001"
+	}
+
+	exe, _ := os.Executable()
+	c := exec.Command(exe, "__ui-serve", "--port", port)
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	// c.Stdin = os.Stdin // Daemon usually doesn't need stdin.
+
+	if err := c.Start(); err != nil {
+		return err
+	}
+
+	// We don't print "UI started in daemon mode" here because __ui-serve prints "UI started at ..."
+	// But __ui-serve output goes to Stdout which might be piped or file.
+	// If proxy is daemon, its stdout is logged to file.
+	// So this print is fine.
+	fmt.Println("UI started in daemon mode", c.Process.Pid)
+	return nil
 }

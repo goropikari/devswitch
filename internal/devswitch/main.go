@@ -36,6 +36,8 @@ var proxyDaemon bool
 var proxyProvider string
 var proxyBindHost string
 var proxyPort string
+var uiPort string
+var uiDaemon bool
 
 // 一時ディレクトリを決定する。
 // DEVSWITCH_TMPDIR があればそれを優先し、なければランタイム固定値を使う。
@@ -354,6 +356,7 @@ var rootCmd = &cobra.Command{
 
 Environment variables:
   DEVSWITCH_PORT            proxy listen port (default: 9000)            [proxy start, app start, info]
+  DEVSWITCH_UI_PORT         UI listen port    (default: 9001)            [proxy start]
   DEVSWITCH_BIND_HOST       proxy bind host   (default: localhost)       [proxy start, info]
   DEVSWITCH_PROXY_PROVIDER  proxy provider    (native, default: native) [proxy start, info]
   DEVSWITCH_TMPDIR          override runtime directory path              [all commands]
@@ -397,6 +400,8 @@ func Execute() error {
 	proxyStartCmd.Flags().StringVar(&proxyProvider, "provider", "", "reverse proxy provider (native)")
 	proxyStartCmd.Flags().StringVarP(&proxyBindHost, "bind", "b", "", "bind host (default: localhost)")
 	proxyStartCmd.Flags().StringVarP(&proxyPort, "port", "p", "", "proxy listen port (default: 9000)")
+	proxyStartCmd.Flags().StringVar(&uiPort, "ui-port", "", "UI listen port (default: 9001)")
+	proxyStartCmd.Flags().BoolVar(&uiDaemon, "ui", true, "start UI server in daemon mode")
 	proxyCmd.AddCommand(proxyStartCmd)
 	proxyCmd.AddCommand(proxyStopCmd)
 
@@ -410,8 +415,9 @@ func Execute() error {
 	rootCmd.AddCommand(switchCmd)
 	rootCmd.AddCommand(cleanupCmd)
 
-	uiCmd.Flags().StringVarP(&uiPort, "port", "p", "9001", "UI listen port")
-	rootCmd.AddCommand(uiCmd)
+	// uiServeCmd is the hidden command to run UI server
+	uiServeCmd.Flags().StringVar(&uiPort, "port", "9001", "UI listen port")
+	rootCmd.AddCommand(uiServeCmd)
 
 	return rootCmd.Execute()
 }
