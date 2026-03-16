@@ -3,7 +3,6 @@ package devswitch
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/goropikari/devswitch/internal/provider"
@@ -31,7 +30,10 @@ The provider can be selected with --provider or DEVSWITCH_PROXY_PROVIDER:
   native   pure-Go HTTP/1.1 + gRPC reverse proxy (default, no extra binary needed)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if proxyPort != "" {
-			os.Setenv("DEVSWITCH_PORT", proxyPort)
+			if err := os.Setenv("DEVSWITCH_PORT", proxyPort); err != nil {
+				logJSON("set DEVSWITCH_PORT", fmt.Sprintf("port=%s", proxyPort), err)
+				return err
+			}
 		}
 		// proxy 起動ごとに tmp dir を新規確定する。
 		if os.Getenv("DEVSWITCH_TMPDIR") == "" {
@@ -40,7 +42,9 @@ The provider can be selected with --provider or DEVSWITCH_PROXY_PROVIDER:
 			}
 		}
 		// 使用ポートを state ファイルに保存（他コマンドが参照できるよう）。
-		warnErr("write proxy port", os.WriteFile(proxyPortFilePath(), []byte(listenPort()), 0644))
+		if err := os.WriteFile(proxyPortFilePath(), []byte(listenPort()), 0644); err != nil {
+			logJSON("write proxy port file", fmt.Sprintf("port=%s", listenPort()), err)
+		}
 
 		providerName := strings.TrimSpace(proxyProvider)
 		if providerName == "" {
@@ -57,7 +61,9 @@ The provider can be selected with --provider or DEVSWITCH_PROXY_PROVIDER:
 			return err
 		}
 
-		warnErr("write proxy provider", writeProxyProviderName(proxyImpl.Name()))
+		if err := writeProxyProviderName(proxyImpl.Name()); err != nil {
+			logJSON("write proxy provider name", fmt.Sprintf("provider=%s", proxyImpl.Name()), err)
+		}
 
 		if proxyDaemon {
 			fmt.Println("proxy started in daemon mode", res.PID)
@@ -85,20 +91,12 @@ func startUIDaemon() error {
 		port = "9001"
 	}
 
-	exe, _ := os.Executable()
-	c := exec.Command(exe, "__ui-serve", "--port", port)
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	// c.Stdin = os.Stdin // Daemon usually doesn't need stdin.
+	// Start UI server in a goroutine (non-blocking daemon mode).
+	go func() {
+		if err := serveUI(port); err != nil {
+			fmt.Printf("UI server error: %v\n", err)
+		}
+	}()
 
-	if err := c.Start(); err != nil {
-		return err
-	}
-
-	// We don't print "UI started in daemon mode" here because __ui-serve prints "UI started at ..."
-	// But __ui-serve output goes to Stdout which might be piped or file.
-	// If proxy is daemon, its stdout is logged to file.
-	// So this print is fine.
-	fmt.Println("UI started in daemon mode", c.Process.Pid)
 	return nil
 }

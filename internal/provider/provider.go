@@ -102,14 +102,88 @@ func startProcessForeground(c *exec.Cmd) error {
 	return c.Run()
 }
 
+// lookupPortPID returns the PID of the process listening on the given TCP port
+// by reading /proc/net/tcp{,6} and /proc/<pid>/fd/ without external commands.
+func lookupPortPID(port int) int {
+	inode := findSocketInode(port)
+	if inode == "" {
+		return 0
+	}
+	return findPIDByInode(inode)
+}
+
+// findSocketInode looks up the socket inode for a LISTEN entry on port.
+func findSocketInode(port int) string {
+	hexPort := fmt.Sprintf("%04X", port)
+	for _, path := range []string{"/proc/net/tcp", "/proc/net/tcp6"} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) < 10 {
+				continue
+			}
+			// local_address: IPADDR:PORT (hex); st 0A = TCP_LISTEN
+			parts := strings.SplitN(fields[1], ":", 2)
+			if len(parts) == 2 && parts[1] == hexPort && fields[3] == "0A" {
+				return fields[9] // inode
+			}
+		}
+	}
+	return ""
+}
+
+// findPIDByInode scans /proc/<pid>/fd symlinks to match the socket inode.
+func findPIDByInode(inode string) int {
+	target := "socket:[" + inode + "]"
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return 0
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil {
+			continue
+		}
+		fds, err := os.ReadDir(fmt.Sprintf("/proc/%d/fd", pid))
+		if err != nil {
+			continue
+		}
+		for _, fd := range fds {
+			link, err := os.Readlink(fmt.Sprintf("/proc/%d/fd/%s", pid, fd.Name()))
+			if err != nil {
+				continue
+			}
+			if link == target {
+				return pid
+			}
+		}
+	}
+	return 0
+}
+
 // stopProxy は PID ファイルを使って proxy プロセスを停止する。
 func stopProxy(env Env) error {
-	portTarget := fmt.Sprintf("%s/tcp", env.ListenPort)
+	port := 0
+	if portStr, err := strconv.Atoi(strings.TrimSpace(env.ListenPort)); err == nil {
+		port = portStr
+	}
 
 	pidData, err := os.ReadFile(env.PIDFilePath)
 	if err != nil {
-		// PID ファイルがなくても待受ポートを閉じに行く。
-		_ = exec.Command("fuser", "-k", portTarget).Run()
+		// PID ファイルがない場合、ポートから PID を lookup して kill する。
+		if port > 0 {
+			if pid := lookupPortPID(port); pid > 0 {
+				if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+					env.WarnErr("send SIGTERM to resolved proxy pid", err)
+				}
+			}
+		}
 		return nil
 	}
 
@@ -124,8 +198,14 @@ func stopProxy(env Env) error {
 		}
 	}
 
-	// fuser -k は対象プロセスが存在しない場合も exit status 1 を返すため無視する。
-	_ = exec.Command("fuser", "-k", portTarget).Run()
+	// ポートがまだ使用中の場合は、port から PID を lookup して kill する（ポート奪取シナリオに対応）。
+	if port > 0 {
+		if resolvedPID := lookupPortPID(port); resolvedPID > 0 && resolvedPID != pid {
+			if err := syscall.Kill(resolvedPID, syscall.SIGKILL); err != nil {
+				env.WarnErr("send SIGKILL to conflicting proxy pid", err)
+			}
+		}
+	}
 
 	if err := os.Remove(env.PIDFilePath); err != nil && !os.IsNotExist(err) {
 		env.WarnErr("remove proxy pid file", err)

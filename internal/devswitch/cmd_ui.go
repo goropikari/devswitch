@@ -5,8 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os/exec"
-	"runtime"
+	"os"
 	"strconv"
 	"strings"
 
@@ -16,70 +15,107 @@ import (
 //go:embed ui/index.html
 var uiFS embed.FS
 
+// serveUI starts the embedded HTTP UI server on the specified port.
+func serveUI(port string) error {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		data, err := uiFS.ReadFile("ui/index.html")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html")
+		if _, err := w.Write(data); err != nil {
+			logJSON("write UI index response", "path=/", err)
+		}
+	})
+
+	http.HandleFunc("/api/servers", handleGetServers)
+	http.HandleFunc("/api/activate", handlePostActivate)
+	http.HandleFunc("/api/stop", handlePostStop)
+	http.HandleFunc("/api/start", handlePostStart)
+	http.HandleFunc("/api/register", handlePostRegister)
+
+	url := fmt.Sprintf("http://localhost:%s", port)
+	fmt.Printf("UI started at %s\n", url)
+	return http.ListenAndServe(":"+port, nil)
+}
+
 var uiServeCmd = &cobra.Command{
 	Use:    "__ui-serve",
 	Hidden: true,
 	Short:  "start web ui",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/" {
-				http.NotFound(w, r)
-				return
-			}
-			data, err := uiFS.ReadFile("ui/index.html")
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			w.Header().Set("Content-Type", "text/html")
-			w.Write(data)
-		})
-
-		http.HandleFunc("/api/servers", handleGetServers)
-		http.HandleFunc("/api/activate", handlePostActivate)
-		http.HandleFunc("/api/stop", handlePostStop)
-		http.HandleFunc("/api/start", handlePostStart)
-		http.HandleFunc("/api/register", handlePostRegister)
-
-		url := fmt.Sprintf("http://localhost:%s", uiPort)
-		fmt.Printf("UI started at %s\n", url)
-		// openBrowser(url) // Daemon mode, probably shouldn't open browser automatically? Or maybe yes? User didn't specify.
-		// existing code had openBrowser. If it runs as daemon, maybe we don't want to pop up browser every time proxy starts?
-		// But the original `ui` command did.
-		// "proxy を立ち上げたら ui の server もデーモンで立ち上げてほしい"
-		// Usually daemons don't open browsers. I'll comment it out or leave it?
-		// Let's keep it for now but maybe we can decide later.
-		// Actually, if it runs in background, opening browser might be annoying if it happens on every restart.
-		// But for "devswitch", maybe it is desired.
-		// However, I will comment it out because `openBrowser` might fail or be weird in daemon context (though it's just exec).
-		// Let's stick to the request: "proxy を立ち上げたら ui の server もデーモンで立ち上げてほしい".
-		// It doesn't say "open browser".
-		// I will comment out openBrowser for __ui-serve.
-
-		return http.ListenAndServe(":"+uiPort, nil)
+		return serveUI(uiPort)
 	},
 }
 
-// lookupPortPID returns the PID of the process listening on the given TCP port,
-// using `ss`. Returns 0 if not found.
+// lookupPortPID returns the PID of the process listening on the given TCP port
+// by reading /proc/net/tcp{,6} and /proc/<pid>/fd/ without external commands.
 func lookupPortPID(port int) int {
-	out, err := exec.Command("ss", "-Htlnp", fmt.Sprintf("sport = :%d", port)).Output()
+	inode := findSocketInode(port)
+	if inode == "" {
+		return 0
+	}
+	return findPIDByInode(inode)
+}
+
+// findSocketInode looks up the socket inode for a LISTEN entry on port.
+func findSocketInode(port int) string {
+	hexPort := fmt.Sprintf("%04X", port)
+	for _, path := range []string{"/proc/net/tcp", "/proc/net/tcp6"} {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		for _, line := range strings.Split(string(data), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) < 10 {
+				continue
+			}
+			// local_address: IPADDR:PORT (hex); st 0A = TCP_LISTEN
+			parts := strings.SplitN(fields[1], ":", 2)
+			if len(parts) == 2 && parts[1] == hexPort && fields[3] == "0A" {
+				return fields[9] // inode
+			}
+		}
+	}
+	return ""
+}
+
+// findPIDByInode scans /proc/<pid>/fd symlinks to match the socket inode.
+func findPIDByInode(inode string) int {
+	target := "socket:[" + inode + "]"
+	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return 0
 	}
-	// Output format: LISTEN 0 4096 *:PORT *:* users:(("name",pid=PID,fd=FD))
-	s := string(out)
-	idx := strings.Index(s, "pid=")
-	if idx < 0 {
-		return 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil {
+			continue
+		}
+		fds, err := os.ReadDir(fmt.Sprintf("/proc/%d/fd", pid))
+		if err != nil {
+			continue
+		}
+		for _, fd := range fds {
+			link, err := os.Readlink(fmt.Sprintf("/proc/%d/fd/%s", pid, fd.Name()))
+			if err != nil {
+				continue
+			}
+			if link == target {
+				return pid
+			}
+		}
 	}
-	rest := s[idx+4:]
-	end := strings.IndexAny(rest, ",)")
-	if end < 0 {
-		return 0
-	}
-	pid, _ := strconv.Atoi(rest[:end])
-	return pid
+	return 0
 }
 
 func handleGetServers(w http.ResponseWriter, r *http.Request) {
@@ -111,13 +147,15 @@ func handleGetServers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"servers": statuses,
 		"active":  active,
 		"proxy": map[string]interface{}{
 			"port": listenPort(),
 		},
-	})
+	}); err != nil {
+		logJSON("encode servers response", "path=/api/servers", err)
+	}
 }
 
 func handlePostActivate(w http.ResponseWriter, r *http.Request) {
@@ -254,7 +292,9 @@ func handlePostRegister(w http.ResponseWriter, r *http.Request) {
 	servers, _ := loadServers()
 	for _, s := range servers {
 		if s.Port == req.Port {
-			warnErr("update proxy route", updateProxyRoute(req.Port))
+			if err := updateProxyRoute(req.Port); err != nil {
+				logJSON("update proxy route (already registered)", fmt.Sprintf("port=%d", req.Port), err)
+			}
 			setActive(req.Port)
 			w.WriteHeader(http.StatusOK)
 			return
@@ -272,29 +312,16 @@ func handlePostRegister(w http.ResponseWriter, r *http.Request) {
 		Label:   label,
 		Command: "external",
 	}); err != nil {
+		logJSON("register external server", fmt.Sprintf("port=%d, label=%q", req.Port, label), err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if err := updateProxyRoute(req.Port); err != nil {
+		logJSON("update proxy route (register)", fmt.Sprintf("port=%d", req.Port), err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	setActive(req.Port)
 	w.WriteHeader(http.StatusOK)
-}
-
-func openBrowser(url string) {
-	var err error
-	switch runtime.GOOS {
-	case "linux":
-		err = exec.Command("xdg-open", url).Start()
-	case "windows":
-		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		err = exec.Command("open", url).Start()
-	}
-	if err != nil {
-		fmt.Printf("Failed to open browser: %v\n", err)
-	}
 }

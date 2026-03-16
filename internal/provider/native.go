@@ -11,6 +11,17 @@ import (
 
 type nativeProxy struct{ env Env }
 
+func warnProvider(env Env, action string, err error) {
+	if err == nil {
+		return
+	}
+	if env.WarnErr != nil {
+		env.WarnErr(action, err)
+		return
+	}
+	log.Printf("WARN: %s: %v", action, err)
+}
+
 func (p nativeProxy) Name() string    { return Native }
 func (p nativeProxy) LogPath() string { return p.env.LogFilePath }
 
@@ -26,7 +37,9 @@ func RunServer(env Env) error {
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", addr, err)
 	}
-	defer l.Close()
+	defer func() {
+		warnProvider(env, "close proxy listener", l.Close())
+	}()
 	log.Printf("TCP proxy listening on %s", addr)
 
 	for {
@@ -40,7 +53,9 @@ func RunServer(env Env) error {
 }
 
 func handleConn(clientConn net.Conn, env Env) {
-	defer clientConn.Close()
+	defer func() {
+		warnProvider(env, "close client connection", clientConn.Close())
+	}()
 
 	port := env.GetActive()
 	if port == 0 {
@@ -53,16 +68,22 @@ func handleConn(clientConn net.Conn, env Env) {
 		log.Printf("failed to connect to backend %s: %v", backendAddr, err)
 		return
 	}
-	defer backendConn.Close()
+	defer func() {
+		warnProvider(env, "close backend connection", backendConn.Close())
+	}()
 
 	// client -> backend
 	go func() {
-		_, _ = io.Copy(backendConn, clientConn)
-		_ = backendConn.Close()
+		if _, err := io.Copy(backendConn, clientConn); err != nil {
+			warnProvider(env, "copy client->backend", err)
+		}
+		warnProvider(env, "close backend connection after copy", backendConn.Close())
 	}()
 	// backend -> client
-	_, _ = io.Copy(clientConn, backendConn)
-	_ = clientConn.Close()
+	if _, err := io.Copy(clientConn, backendConn); err != nil {
+		warnProvider(env, "copy backend->client", err)
+	}
+	warnProvider(env, "close client connection after copy", clientConn.Close())
 }
 
 func (p nativeProxy) Start(opts StartOptions) (StartResult, error) {

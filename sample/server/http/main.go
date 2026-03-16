@@ -13,7 +13,9 @@ func main() {
 	addr := ":" + *port
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello, World! port = %s\n", *port)
+		if _, err := fmt.Fprintf(w, "Hello, World! port = %s\n", *port); err != nil {
+			log.Printf("failed to write HTTP response: %v", err)
+		}
 	})
 
 	log.Printf("Listening on port %s...", *port)

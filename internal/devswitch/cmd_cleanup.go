@@ -3,7 +3,6 @@ package devswitch
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -20,21 +19,28 @@ func cleanupAllStartedServers() error {
 	for _, s := range servers {
 		if s.PID > 0 && pidAlive(s.PID) {
 			if err := syscall.Kill(s.PID, syscall.SIGTERM); err != nil {
-				warnErr(fmt.Sprintf("send SIGTERM to pid=%d", s.PID), err)
+				logJSON(fmt.Sprintf("send SIGTERM to pid=%d", s.PID), "", err)
 			}
 		}
 
-		if err := exec.Command("fuser", "-k", fmt.Sprintf("%d/tcp", s.Port)).Run(); err != nil {
-			warnErr(fmt.Sprintf("kill tcp port=%d", s.Port), err)
+		// Fallback to lookup port PID if port is still listening.
+		if pid := lookupPortPID(s.Port); pid > 0 {
+			if err := syscall.Kill(pid, syscall.SIGKILL); err != nil {
+				logJSON(fmt.Sprintf("send SIGKILL to resolved pid=%d", pid), fmt.Sprintf("port=%d", s.Port), err)
+			}
 		}
 		fmt.Println("stopped server", s.Port)
 		stopped++
 	}
 
-	warnErr("save empty registry", saveRegistry(nil))
-	warnErr("write empty dynamic config", writeEmptyDynamic())
+	if err := saveRegistry(nil); err != nil {
+		logJSON("save empty registry", "", err)
+	}
+	if err := writeEmptyDynamic(); err != nil {
+		logJSON("write empty dynamic config", "", err)
+	}
 	if err := os.Remove(activeFilePath()); err != nil && !os.IsNotExist(err) {
-		warnErr("remove active file", err)
+		logJSON("remove active file", "", err)
 	}
 
 	fmt.Println("cleanup completed", stopped)

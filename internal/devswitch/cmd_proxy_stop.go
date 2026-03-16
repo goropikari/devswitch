@@ -27,7 +27,7 @@ var proxyStopCmd = &cobra.Command{
 
 		dir := devswitchDir()
 		if err := os.RemoveAll(dir); err != nil {
-			warnErr("remove tmpdir", err)
+			logJSON("remove tmpdir", fmt.Sprintf("dir=%s", dir), err)
 		} else {
 			fmt.Println("removed tmpdir", dir)
 		}

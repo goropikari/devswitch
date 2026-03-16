@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 )
@@ -50,7 +51,9 @@ func StartAppServer(params StartAppParams) (int, error) {
 			nextServers = append(nextServers, s)
 		}
 		// Clear out dead entry with same label before starting new
-		saveRegistry(nextServers)
+		if err := saveRegistry(nextServers); err != nil {
+			logJSON("clear dead server entries", fmt.Sprintf("label=%q", label), err)
+		}
 	}
 
 	// portEnv が有効な環境変数名かチェックする。
@@ -91,7 +94,7 @@ func StartAppServer(params StartAppParams) (int, error) {
 	if label == "" {
 		label = randomName()
 	}
-	warnErr("register started server", addServer(Server{
+	if err := addServer(Server{
 		Port:    port,
 		PID:     c.Process.Pid,
 		Branch:  currentBranchName(),
@@ -100,8 +103,12 @@ func StartAppServer(params StartAppParams) (int, error) {
 		Args:    params.Args, // Base args
 		PortEnv: params.PortEnv,
 		PortArg: params.PortArg,
-	}))
-	warnErr("update proxy route", updateProxyRoute(port))
+	}); err != nil {
+		logJSON("register started server", fmt.Sprintf("port=%d, label=%q", port, label), err)
+	}
+	if err := updateProxyRoute(port); err != nil {
+		logJSON("update proxy route", fmt.Sprintf("port=%d", port), err)
+	}
 	setActive(port)
 
 	return port, nil
@@ -128,17 +135,27 @@ func StopAppServer(port int) error {
 	if s.PID > 0 {
 		p, err := os.FindProcess(s.PID)
 		if err == nil {
-			_ = p.Kill()
+			if err := p.Kill(); err != nil {
+				logJSON("kill managed process", fmt.Sprintf("port=%d, pid=%d", s.Port, s.PID), err)
+			}
+		} else {
+			logJSON("find managed process", fmt.Sprintf("port=%d, pid=%d", s.Port, s.PID), err)
 		}
-		// Fallback to fuser if port is still bound or just as extra precaution.
-		_ = exec.Command("fuser", "-k", fmt.Sprintf("%d/tcp", s.Port)).Run()
+		// Fallback to lookup port PID if process kill fails.
+		if pid := lookupPortPID(s.Port); pid > 0 {
+			if err := syscall.Kill(pid, syscall.SIGKILL); err != nil {
+				logJSON("kill port process", fmt.Sprintf("port=%d, resolved_pid=%d", s.Port, pid), err)
+			}
+		}
 	}
 
 	// Mark as stopped in registry.
 	if sIdx != -1 {
 		// Remove from registry so it is no longer managed/proxied.
 		servers = append(servers[:sIdx], servers[sIdx+1:]...)
-		_ = saveRegistry(servers)
+		if err := saveRegistry(servers); err != nil {
+			logJSON("remove stopped server from registry", fmt.Sprintf("port=%d", s.Port), err)
+		}
 	}
 
 	// 停止した app が active だった場合、残っている別の app へ自動的に切り替える。
@@ -152,7 +169,9 @@ func StopAppServer(port int) error {
 		}
 		if len(others) > 0 {
 			next := others[len(others)-1]
-			warnErr("update proxy route", updateProxyRoute(next.Port))
+			if err := updateProxyRoute(next.Port); err != nil {
+				logJSON("update proxy route after stop", fmt.Sprintf("port=%d", next.Port), err)
+			}
 			setActive(next.Port)
 			fmt.Printf("switched active to port %d (%s, branch %s)\n", next.Port, next.Label, formatBranchLabel(next.Branch))
 		} else {
@@ -190,7 +209,9 @@ var appRegisterCmd = &cobra.Command{
 		existing, _ := loadServers()
 		for _, s := range existing {
 			if s.Port == registerPort {
-				warnErr("update proxy route", updateProxyRoute(registerPort))
+				if err := updateProxyRoute(registerPort); err != nil {
+					logJSON("update proxy route for existing register", fmt.Sprintf("port=%d", registerPort), err)
+				}
 				setActive(registerPort)
 				fmt.Printf("port %d is already registered (label: %s)\n", registerPort, s.Label)
 				fmt.Printf("switched active to port %d\n", registerPort)

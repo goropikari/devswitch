@@ -166,14 +166,22 @@ func proxyAlive() bool {
 	if err != nil {
 		return false
 	}
-	_ = conn.Close()
+	if err := conn.Close(); err != nil {
+		warnErr("close proxy probe connection", err)
+	}
 	return true
 }
 
 // OS に空きポートを割り当てさせて取得する。
 func freePort() int {
-	l, _ := net.Listen("tcp", ":0")
-	defer l.Close()
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		logJSON("allocate free port", "network=tcp, addr=:0", err)
+		return 0
+	}
+	defer func() {
+		warnErr("close free-port listener", l.Close())
+	}()
 	return l.Addr().(*net.TCPAddr).Port
 }
 
@@ -192,7 +200,9 @@ func loadServers() ([]Server, error) {
 	if err != nil {
 		return nil, nil
 	}
-	defer file.Close()
+	defer func() {
+		warnErr("close registry file", file.Close())
+	}()
 
 	var allServers []Server
 	scanner := bufio.NewScanner(file)
@@ -266,7 +276,9 @@ func loadServers() ([]Server, error) {
 	}
 
 	if dirty {
-		_ = saveRegistry(liveServers)
+		if err := saveRegistry(liveServers); err != nil {
+			logJSON("cleanup dead servers from registry", fmt.Sprintf("live=%d", len(liveServers)), err)
+		}
 	}
 
 	return liveServers, nil
@@ -282,7 +294,9 @@ func saveRegistry(servers []Server) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		warnErr("close registry temp file", f.Close())
+	}()
 
 	for _, s := range servers {
 		fullCmd := s.Command
