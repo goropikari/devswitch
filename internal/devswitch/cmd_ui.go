@@ -84,6 +84,9 @@ func handleGetServers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"servers": statuses,
 		"active":  active,
+		"proxy": map[string]interface{}{
+			"port": listenPort(),
+		},
 	})
 }
 

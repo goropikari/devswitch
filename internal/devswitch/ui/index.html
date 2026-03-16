@@ -9,6 +9,8 @@
         .active-row { border: 2px solid var(--pico-primary); }
         .active-mark { font-weight: bold; color: var(--pico-primary); }
         .grid-form { margin-top: 2rem; }
+        .proxy-meta { margin-bottom: 1rem; color: var(--pico-muted-color); }
+        .proxy-port { font-weight: 700; color: var(--pico-primary); }
     </style>
 </head>
 <body>
@@ -20,6 +22,7 @@
         
         <section>
             <h2>App Processes</h2>
+            <p class="proxy-meta">Proxy Listen Port: <span id="proxy-port" class="proxy-port">-</span></p>
             <table id="server-table">
                 <thead>
                     <tr>
@@ -61,9 +64,6 @@
                         <input type="text" name="portArg" placeholder="e.g. --port">
                     </label>
                 </div>
-                <label>
-                    <input type="checkbox" name="grpc"> gRPC Mode
-                </label>
                 <button type="submit">Start Server</button>
             </form>
         </section>
@@ -91,7 +91,9 @@
             const resp = await fetch('/api/servers');
             const data = await resp.json();
             const list = document.getElementById('server-list');
+            const proxyPort = document.getElementById('proxy-port');
             list.innerHTML = '';
+            proxyPort.textContent = data.proxy?.port ?? '-';
             
             data.servers.forEach(s => {
                 const isActive = s.Port === data.active && s.running;
@@ -157,8 +159,7 @@
                 label: formData.get('label'),
                 command: formData.get('command'),
                 portEnv: formData.get('portEnv'),
-                portArg: formData.get('portArg'),
-                grpc: e.target.grpc.checked
+                portArg: formData.get('portArg')
             };
             
             const resp = await fetch('/api/start', {
