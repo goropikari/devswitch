@@ -43,34 +43,54 @@ var proxyStopCmd = &cobra.Command{
 }
 
 func stopUIDaemon() error {
-	b, err := os.ReadFile(uiPIDFilePath())
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
+	uiPID, _ := readIntFile(uiPIDFilePath())
+	uiPort, _ := readIntFile(uiPortFilePath())
+
+	stoppedByPID := false
+	if uiPID > 0 {
+		if err := syscall.Kill(uiPID, syscall.SIGTERM); err != nil && err != syscall.ESRCH {
+			return fmt.Errorf("signal ui pid %d: %w", uiPID, err)
 		}
-		return err
+		stoppedByPID = true
+		fmt.Println("ui stop requested", uiPID)
 	}
 
-	pidStr := strings.TrimSpace(string(b))
-	if pidStr == "" {
-		return nil
-	}
-
-	pid, err := strconv.Atoi(pidStr)
-	if err != nil {
-		return fmt.Errorf("parse ui pid %q: %w", pidStr, err)
-	}
-	if pid <= 0 {
-		return nil
-	}
-
-	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil && err != syscall.ESRCH {
-		return fmt.Errorf("signal ui pid %d: %w", pid, err)
+	if uiPort > 0 {
+		if pid := lookupPortPID(uiPort); pid > 0 && (!stoppedByPID || pid != uiPID) {
+			if err := syscall.Kill(pid, syscall.SIGTERM); err != nil && err != syscall.ESRCH {
+				return fmt.Errorf("signal ui port pid %d (port %d): %w", pid, uiPort, err)
+			}
+			fmt.Println("ui stop requested by port", uiPort, pid)
+		}
 	}
 
 	if err := os.Remove(uiPIDFilePath()); err != nil && !os.IsNotExist(err) {
 		logJSON("remove UI pid file", uiPIDFilePath(), err)
 	}
-	fmt.Println("ui stop requested", pid)
+	if err := os.Remove(uiPortFilePath()); err != nil && !os.IsNotExist(err) {
+		logJSON("remove UI port file", uiPortFilePath(), err)
+	}
 	return nil
+}
+
+func readIntFile(path string) (int, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	v := strings.TrimSpace(string(b))
+	if v == "" {
+		return 0, nil
+	}
+	parsed, err := strconv.Atoi(v)
+	if err != nil {
+		return 0, fmt.Errorf("parse int from %s: %w", path, err)
+	}
+	if parsed <= 0 {
+		return 0, nil
+	}
+	return parsed, nil
 }

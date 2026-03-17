@@ -147,6 +147,10 @@ func uiLogFilePath() string {
 	return devswitchDir() + "/ui.log"
 }
 
+func uiPortFilePath() string {
+	return devswitchDir() + "/ui.port"
+}
+
 // proxy の待受ポートを返す。
 // 優先順: --port フラグ > proxy.port state ファイル > DEVSWITCH_PORT 環境変数 > デフォルト 9000
 // state ファイルは proxy start 時に書き込まれ、実際に起動中の proxy のポートを表す。

@@ -137,6 +137,9 @@ func startUIDaemon() error {
 	if err := os.WriteFile(uiPIDFilePath(), []byte(strconv.Itoa(cmd.Process.Pid)), 0600); err != nil {
 		logJSON("write UI pid file", fmt.Sprintf("pid=%d", cmd.Process.Pid), err)
 	}
+	if err := os.WriteFile(uiPortFilePath(), []byte(port), 0600); err != nil {
+		logJSON("write UI port file", fmt.Sprintf("port=%s", port), err)
+	}
 
 	fmt.Println("UI started in daemon mode", cmd.Process.Pid)
 	fmt.Printf("UI URL: http://%s:%s\n", bindHost, port)
