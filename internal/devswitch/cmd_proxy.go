@@ -112,8 +112,8 @@ func startUIDaemon() error {
 		return fmt.Errorf("resolve executable: %w", err)
 	}
 
-	//nolint:gosec // G204: Trusting os.Executable() to launch UI daemon
-	cmd := exec.Command(exe, "__ui-serve", "--port", port, "--bind", bindHost)
+	//nolint:gosec // G204,G702: exe is os.Executable() (self); port/bindHost are internal CLI values passed as argv, not shell-expanded
+	cmd := exec.Command(exe, "__ui-serve", "--port", port, "--bind", bindHost) // #nosec G204,G702
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
 	logPath := uiLogFilePath()
@@ -134,10 +134,12 @@ func startUIDaemon() error {
 		return fmt.Errorf("start UI daemon: %w", err)
 	}
 
-	if err := os.WriteFile(uiPIDFilePath(), []byte(strconv.Itoa(cmd.Process.Pid)), 0600); err != nil {
+	//nolint:gosec // G703: path is derived from internal devswitchDir(), not user-controlled
+	if err := os.WriteFile(uiPIDFilePath(), []byte(strconv.Itoa(cmd.Process.Pid)), 0600); err != nil { // #nosec G703
 		logJSON("write UI pid file", fmt.Sprintf("pid=%d", cmd.Process.Pid), err)
 	}
-	if err := os.WriteFile(uiPortFilePath(), []byte(port), 0600); err != nil {
+	//nolint:gosec // G703: path is derived from internal devswitchDir(), not user-controlled
+	if err := os.WriteFile(uiPortFilePath(), []byte(port), 0600); err != nil { // #nosec G703
 		logJSON("write UI port file", fmt.Sprintf("port=%s", port), err)
 	}
 

@@ -95,6 +95,7 @@ func StartAppServer(params StartAppParams) (int, error) {
 	}
 
 	// 指定されたコマンドを空きポート付きで起動する。
+	//nolint:gosec // G204: executing user-supplied command is the core purpose; validated via LookPath and forbidden-list above
 	c := exec.Command(exePath, commandArgs...)
 	env := os.Environ()
 	if params.PortEnv != "" {

@@ -188,6 +188,7 @@ func proxyAlive() bool {
 
 // OS に空きポートを割り当てさせて取得する。
 func freePort() int {
+	//nolint:gosec // G102: binding to :0 to obtain a free ephemeral port from the OS, not for serving
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		logJSON("allocate free port", "network=tcp, addr=:0", err)
@@ -305,6 +306,7 @@ func saveRegistry(servers []Server) error {
 	}
 
 	tmp := registryFilePath() + ".tmp"
+	//nolint:gosec // G304: tmp path is derived from internal registryFilePath(), not user-controlled
 	f, err := os.Create(tmp)
 	if err != nil {
 		return err

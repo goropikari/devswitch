@@ -74,6 +74,7 @@ func stopUIDaemon() error {
 }
 
 func readIntFile(path string) (int, error) {
+	//nolint:gosec // G304: callers always pass internal devswitch state file paths
 	b, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
