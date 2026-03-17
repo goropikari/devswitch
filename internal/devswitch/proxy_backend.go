@@ -56,7 +56,10 @@ func resolveBindHost() string {
 }
 
 func buildProxyEnv() provider.Env {
-	exe, _ := os.Executable()
+	exe, err := os.Executable()
+	if err != nil {
+		warnErr("resolve executable path", err)
+	}
 	return provider.Env{
 		BindHost:         resolveBindHost(),
 		ListenPort:       listenPort(),

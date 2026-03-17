@@ -16,7 +16,10 @@ var listCmd = &cobra.Command{
 	Long: `Show all app processes registered in the current workspace.
 The active backend (currently receiving proxy traffic) is marked with *.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		servers, _ := loadServers()
+		servers, err := loadServers()
+		if err != nil {
+			return err
+		}
 		active := currentActive()
 
 		if listJSON {

@@ -122,10 +122,9 @@ func startUIDaemon() error {
 	if err != nil {
 		return fmt.Errorf("open UI log file: %w", err)
 	}
-	// We do not close logFile here because it is attached to the child process.
-	// The file descriptor will be closed in the parent process when this function returns/cmd.Start() finishes?
-	// Actually, exec.Command duplicates the file descriptor. We should close it in parent after Start().
-	defer logFile.Close()
+	// exec.Command duplicates the file descriptor into the child process.
+	// Close the parent-side fd after cmd.Start() returns (deferred).
+	defer func() { warnErr("close UI log file", logFile.Close()) }()
 
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile

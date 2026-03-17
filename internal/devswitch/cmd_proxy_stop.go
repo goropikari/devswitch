@@ -43,8 +43,14 @@ var proxyStopCmd = &cobra.Command{
 }
 
 func stopUIDaemon() error {
-	uiPID, _ := readIntFile(uiPIDFilePath())
-	uiPort, _ := readIntFile(uiPortFilePath())
+	uiPID, err := readIntFile(uiPIDFilePath())
+	if err != nil {
+		logJSON("read UI pid file", uiPIDFilePath(), err)
+	}
+	uiPort, err := readIntFile(uiPortFilePath())
+	if err != nil {
+		logJSON("read UI port file", uiPortFilePath(), err)
+	}
 
 	stoppedByPID := false
 	if uiPID > 0 {

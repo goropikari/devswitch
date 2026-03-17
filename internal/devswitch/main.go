@@ -214,7 +214,10 @@ func loadServers() ([]Server, error) {
 	//nolint:gosec // G304: registryFilePath is internal and safe
 	file, err := os.Open(registryFilePath())
 	if err != nil {
-		return nil, nil
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("open registry file: %w", err)
 	}
 	defer func() {
 		warnErr("close registry file", file.Close())
@@ -222,7 +225,9 @@ func loadServers() ([]Server, error) {
 
 	var allServers []Server
 	scanner := bufio.NewScanner(file)
+	lineNo := 0
 	for scanner.Scan() {
+		lineNo++
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
@@ -232,24 +237,48 @@ func loadServers() ([]Server, error) {
 		meta := strings.TrimSpace(parts[0])
 		fullCmd := ""
 		if len(parts) == 2 {
-			fullCmd, _ = url.PathUnescape(strings.TrimSpace(parts[1]))
+			decoded, decErr := url.PathUnescape(strings.TrimSpace(parts[1]))
+			if decErr != nil {
+				return nil, fmt.Errorf("parse registry line %d command: %w", lineNo, decErr)
+			}
+			fullCmd = decoded
 		}
 
 		fields := strings.Fields(meta)
 		if len(fields) < 4 {
-			continue
+			return nil, fmt.Errorf("parse registry line %d: expected at least 4 fields", lineNo)
 		}
 
-		port, _ := strconv.Atoi(fields[0])
-		pid, _ := strconv.Atoi(fields[1])
-		branch, _ := url.PathUnescape(fields[2])
-		label, _ := url.PathUnescape(fields[3])
+		port, convErr := strconv.Atoi(fields[0])
+		if convErr != nil {
+			return nil, fmt.Errorf("parse registry line %d port: %w", lineNo, convErr)
+		}
+		pid, convErr := strconv.Atoi(fields[1])
+		if convErr != nil {
+			return nil, fmt.Errorf("parse registry line %d pid: %w", lineNo, convErr)
+		}
+		branch, decErr := url.PathUnescape(fields[2])
+		if decErr != nil {
+			return nil, fmt.Errorf("parse registry line %d branch: %w", lineNo, decErr)
+		}
+		label, decErr := url.PathUnescape(fields[3])
+		if decErr != nil {
+			return nil, fmt.Errorf("parse registry line %d label: %w", lineNo, decErr)
+		}
 
 		pEnv := ""
 		pArg := ""
 		if len(fields) >= 6 {
-			pEnv, _ = url.PathUnescape(fields[4])
-			pArg, _ = url.PathUnescape(fields[5])
+			decoded, decErr := url.PathUnescape(fields[4])
+			if decErr != nil {
+				return nil, fmt.Errorf("parse registry line %d port env: %w", lineNo, decErr)
+			}
+			pEnv = decoded
+			decoded, decErr = url.PathUnescape(fields[5])
+			if decErr != nil {
+				return nil, fmt.Errorf("parse registry line %d port arg: %w", lineNo, decErr)
+			}
+			pArg = decoded
 		}
 
 		cmdParts := strings.Fields(fullCmd)
@@ -270,6 +299,9 @@ func loadServers() ([]Server, error) {
 			PortEnv: pEnv,
 			PortArg: pArg,
 		})
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan registry file: %w", err)
 	}
 
 	// Filter dead servers
@@ -293,7 +325,7 @@ func loadServers() ([]Server, error) {
 
 	if dirty {
 		if err := saveRegistry(liveServers); err != nil {
-			logJSON("cleanup dead servers from registry", fmt.Sprintf("live=%d", len(liveServers)), err)
+			return nil, fmt.Errorf("cleanup dead servers from registry: %w", err)
 		}
 	}
 
@@ -321,14 +353,19 @@ func saveRegistry(servers []Server) error {
 			fullCmd += " " + strings.Join(s.Args, " ")
 		}
 
-		_, _ = fmt.Fprintf(f, "%d %d %s %s %s %s",
+		if _, err := fmt.Fprintf(f, "%d %d %s %s %s %s",
 			s.Port, s.PID, sanitizeFieldValue(s.Branch),
-			sanitizeFieldValue(s.Label), sanitizeFieldValue(s.PortEnv), sanitizeFieldValue(s.PortArg))
-
-		if strings.TrimSpace(fullCmd) != "" {
-			_, _ = fmt.Fprintf(f, "\t%s", sanitizeFieldValue(fullCmd))
+			sanitizeFieldValue(s.Label), sanitizeFieldValue(s.PortEnv), sanitizeFieldValue(s.PortArg)); err != nil {
+			return fmt.Errorf("write registry entry: %w", err)
 		}
-		_, _ = fmt.Fprintln(f)
+		if strings.TrimSpace(fullCmd) != "" {
+			if _, err := fmt.Fprintf(f, "\t%s", sanitizeFieldValue(fullCmd)); err != nil {
+				return fmt.Errorf("write registry command: %w", err)
+			}
+		}
+		if _, err := fmt.Fprintln(f); err != nil {
+			return fmt.Errorf("write registry newline: %w", err)
+		}
 	}
 
 	return os.Rename(tmp, registryFilePath())
@@ -341,7 +378,10 @@ func sanitizeFieldValue(s string) string {
 
 // 新規サーバーをレジストリに追加する。
 func addServer(s Server) error {
-	servers, _ := loadServers()
+	servers, err := loadServers()
+	if err != nil {
+		return err
+	}
 	servers = append(servers, s)
 	return saveRegistry(servers)
 }
@@ -349,11 +389,18 @@ func addServer(s Server) error {
 // 現在アクティブなポートを書き込む。
 func setActive(port int) {
 	if port == 0 {
-		_ = os.Remove(activeFilePath())
+		if err := os.Remove(activeFilePath()); err != nil && !os.IsNotExist(err) {
+			logJSON("remove active file", activeFilePath(), err)
+		}
 		return
 	}
-	_ = ensureTmpDir()
-	_ = os.WriteFile(activeFilePath(), []byte(strconv.Itoa(port)), 0600)
+	if err := ensureTmpDir(); err != nil {
+		logJSON("set active port: ensure tmpdir", fmt.Sprintf("port=%d", port), err)
+		return
+	}
+	if err := os.WriteFile(activeFilePath(), []byte(strconv.Itoa(port)), 0600); err != nil {
+		logJSON("set active port", fmt.Sprintf("port=%d", port), err)
+	}
 }
 
 // 現在アクティブなポートを読み取る。

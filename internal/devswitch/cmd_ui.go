@@ -125,7 +125,12 @@ func findPIDByInode(inode string) int {
 }
 
 func handleGetServers(w http.ResponseWriter, r *http.Request) {
-	servers, _ := loadServers()
+	servers, err := loadServers()
+	if err != nil {
+		logJSON("load servers", "path=/api/servers", err)
+		http.Error(w, "failed to load servers", http.StatusInternalServerError)
+		return
+	}
 	active := currentActive()
 	// PID field shadows Server.PID in JSON output so we can override it.
 	type serverStatus struct {
@@ -173,7 +178,12 @@ func handlePostActivate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	servers, _ := loadServers()
+	servers, err := loadServers()
+	if err != nil {
+		logJSON("load servers", "path=/api/activate", err)
+		http.Error(w, "failed to load servers", http.StatusInternalServerError)
+		return
+	}
 	var s *Server
 	for _, svr := range servers {
 		if svr.Label == req.Label {
@@ -295,7 +305,12 @@ func handlePostRegister(w http.ResponseWriter, r *http.Request) {
 		label = randomName()
 	}
 
-	servers, _ := loadServers()
+	servers, err := loadServers()
+	if err != nil {
+		logJSON("load servers", "path=/api/register", err)
+		http.Error(w, "failed to load servers", http.StatusInternalServerError)
+		return
+	}
 	for _, s := range servers {
 		if s.Port == req.Port {
 			if err := updateProxyRoute(req.Port); err != nil {

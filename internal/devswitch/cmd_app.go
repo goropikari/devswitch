@@ -39,7 +39,10 @@ func StartAppServer(params StartAppParams) (int, error) {
 	// ラベルの重複チェック（起動前に行う）。
 	label := strings.TrimSpace(params.Label)
 	if label != "" {
-		existing, _ := loadServers()
+		existing, err := loadServers()
+		if err != nil {
+			return 0, err
+		}
 		var nextServers []Server
 		for _, s := range existing {
 			if s.Label == label {
@@ -135,7 +138,10 @@ func StartAppServer(params StartAppParams) (int, error) {
 }
 
 func StopAppServer(port int) error {
-	servers, _ := loadServers()
+	servers, err := loadServers()
+	if err != nil {
+		return err
+	}
 	var s *Server
 	var sIdx = -1
 	for i, svr := range servers {
@@ -180,7 +186,10 @@ func StopAppServer(port int) error {
 
 	// 停止した app が active だった場合、残っている別の app へ自動的に切り替える。
 	if wasActive {
-		remaining, _ := loadServers()
+		remaining, err := loadServers()
+		if err != nil {
+			return err
+		}
 		var others []Server
 		for _, r := range remaining {
 			if r.Port != s.Port {
@@ -226,7 +235,10 @@ var appRegisterCmd = &cobra.Command{
 		}
 
 		// Validate uniqueness by port/label and clean dead entries.
-		existing, _ := loadServers()
+		existing, err := loadServers()
+		if err != nil {
+			return err
+		}
 		for _, s := range existing {
 			if s.Port == registerPort {
 				if err := updateProxyRoute(registerPort); err != nil {
@@ -319,7 +331,10 @@ var appStopCmd = &cobra.Command{
 	Short: "stop an app process",
 	Long:  `Interactively select a running app process and stop it by sending SIGKILL to its TCP port.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		servers, _ := loadServers()
+		servers, err := loadServers()
+		if err != nil {
+			return err
+		}
 		s, err := selectServer(servers)
 		if err != nil {
 			return err
