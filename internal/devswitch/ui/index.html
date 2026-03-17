@@ -32,7 +32,6 @@
                         <th>Label</th>
                         <th>Branch</th>
                         <th>Port</th>
-                        <th>PID</th>
                         <th>Status</th>
                         <th>Details</th>
                         <th>Action</th>
@@ -125,7 +124,6 @@
                     <td>${s.Label}</td>
                     <td>${s.Branch}</td>
                     <td>${s.running ? s.Port : '-'}</td>
-                    <td>${s.running ? s.PID : '-'}</td>
                     <td>
                         ${s.running ? '<span class="active-mark">● Running</span>' : '<span style="color:gray">○ Stopped</span>'}
                         ${isActive ? ' <strong>(Active)</strong>' : ''}
