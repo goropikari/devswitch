@@ -66,7 +66,8 @@ func waitPortFree(port string, timeout time.Duration) error {
 
 func startProcessDaemon(c *exec.Cmd, env Env) (StartResult, error) {
 	logPath := env.LogFilePath
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	//nolint:gosec // G304: logPath is internal and safe
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 	if err != nil {
 		return StartResult{}, err
 	}
@@ -80,7 +81,7 @@ func startProcessDaemon(c *exec.Cmd, env Env) (StartResult, error) {
 		return StartResult{}, err
 	}
 
-	env.WarnErr("write proxy pid file", os.WriteFile(env.PIDFilePath, []byte(strconv.Itoa(c.Process.Pid)), 0644))
+	env.WarnErr("write proxy pid file", os.WriteFile(env.PIDFilePath, []byte(strconv.Itoa(c.Process.Pid)), 0600))
 
 	// 起動直後に死んでいないか確認して、誤検知の「started」を防ぐ。
 	time.Sleep(200 * time.Millisecond)
@@ -116,6 +117,7 @@ func lookupPortPID(port int) int {
 func findSocketInode(port int) string {
 	hexPort := fmt.Sprintf("%04X", port)
 	for _, path := range []string{"/proc/net/tcp", "/proc/net/tcp6"} {
+		//nolint:gosec // G304: Reading /proc/net/tcp{,6} is safe and required for port lookup
 		data, err := os.ReadFile(path)
 		if err != nil {
 			continue

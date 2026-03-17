@@ -100,6 +100,7 @@ func (p nativeProxy) Start(opts StartOptions) (StartResult, error) {
 		}
 	}
 
+	//nolint:gosec // G204: Trusting os.Executable() result which is the binary itself
 	c := exec.Command(exe, "__proxy-serve")
 	if opts.Daemon {
 		return startProcessDaemon(c, p.env)

@@ -87,6 +87,7 @@ func initRuntimeDir(forceNew bool) (string, error) {
 	stateFile := runtimeDirStateFile()
 
 	if !forceNew {
+		//nolint:gosec // G304: stateFile is a fixed path within temp dir
 		if b, err := os.ReadFile(stateFile); err == nil {
 			saved := strings.TrimSpace(string(b))
 			if saved != "" {
@@ -100,7 +101,7 @@ func initRuntimeDir(forceNew bool) (string, error) {
 		return "", err
 	}
 
-	if err := os.WriteFile(stateFile, []byte(randomDir), 0644); err != nil {
+	if err := os.WriteFile(stateFile, []byte(randomDir), 0600); err != nil {
 		return "", err
 	}
 
@@ -109,7 +110,7 @@ func initRuntimeDir(forceNew bool) (string, error) {
 
 // 実際に利用する tmp dir を作成しておく。
 func ensureTmpDir() error {
-	return os.MkdirAll(devswitchDir(), 0755)
+	return os.MkdirAll(devswitchDir(), 0700)
 }
 
 // 管理ファイルの配置先ヘルパー。
@@ -196,6 +197,7 @@ func pidAlive(pid int) bool {
 // レジストリからサーバー一覧を読み込む。
 // 生きていない PID は除外し、読み込み後にレジストリを自動クリーンアップする。
 func loadServers() ([]Server, error) {
+	//nolint:gosec // G304: registryFilePath is internal and safe
 	file, err := os.Open(registryFilePath())
 	if err != nil {
 		return nil, nil
@@ -336,7 +338,7 @@ func setActive(port int) {
 		return
 	}
 	_ = ensureTmpDir()
-	_ = os.WriteFile(activeFilePath(), []byte(strconv.Itoa(port)), 0644)
+	_ = os.WriteFile(activeFilePath(), []byte(strconv.Itoa(port)), 0600)
 }
 
 // 現在アクティブなポートを読み取る。
@@ -423,7 +425,7 @@ http:
 
 `
 
-	return os.WriteFile(dynamicPath(), []byte(y), 0644)
+	return os.WriteFile(dynamicPath(), []byte(y), 0600)
 }
 
 func Execute() error {

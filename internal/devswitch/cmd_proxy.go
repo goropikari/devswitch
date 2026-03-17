@@ -42,7 +42,7 @@ The provider can be selected with --provider or DEVSWITCH_PROXY_PROVIDER:
 			}
 		}
 		// 使用ポートを state ファイルに保存（他コマンドが参照できるよう）。
-		if err := os.WriteFile(proxyPortFilePath(), []byte(listenPort()), 0644); err != nil {
+		if err := os.WriteFile(proxyPortFilePath(), []byte(listenPort()), 0600); err != nil {
 			logJSON("write proxy port file", fmt.Sprintf("port=%s", listenPort()), err)
 		}
 

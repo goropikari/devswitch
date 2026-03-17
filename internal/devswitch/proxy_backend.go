@@ -35,7 +35,7 @@ func writeProxyProviderName(name string) error {
 	if err := ensureTmpDir(); err != nil {
 		return err
 	}
-	return os.WriteFile(providerStateFilePath(), []byte(normalizeProxyProviderName(name)), 0644)
+	return os.WriteFile(providerStateFilePath(), []byte(normalizeProxyProviderName(name)), 0600)
 }
 
 func resolveCurrentProxyProviderName() string {

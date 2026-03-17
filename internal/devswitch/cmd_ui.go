@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -41,7 +42,11 @@ func serveUI(port string) error {
 
 	url := fmt.Sprintf("http://localhost:%s", port)
 	fmt.Printf("UI started at %s\n", url)
-	return http.ListenAndServe(":"+port, nil)
+	server := &http.Server{
+		Addr:              ":" + port,
+		ReadHeaderTimeout: 3 * time.Second,
+	}
+	return server.ListenAndServe()
 }
 
 var uiServeCmd = &cobra.Command{
@@ -67,6 +72,7 @@ func lookupPortPID(port int) int {
 func findSocketInode(port int) string {
 	hexPort := fmt.Sprintf("%04X", port)
 	for _, path := range []string{"/proc/net/tcp", "/proc/net/tcp6"} {
+		//nolint:gosec // G304: Reading /proc/net/tcp{,6} is safe and required for port lookup
 		data, err := os.ReadFile(path)
 		if err != nil {
 			continue

@@ -23,6 +23,7 @@ func findDotGit(dir string) (string, bool) {
 
 // resolveWorktreeGitDir resolves a linked-worktree "gitdir: ..." .git file to an absolute path.
 func resolveWorktreeGitDir(dotgitFile, repoRoot string) (string, error) {
+	//nolint:gosec // G304: Reading .git file path derived from trusted local git repo structure
 	data, err := os.ReadFile(dotgitFile)
 	if err != nil {
 		return "", err
@@ -65,6 +66,7 @@ func gitCommonDir() (string, error) {
 		return "", err
 	}
 	// .git/worktrees/<name>/commondir contains the relative path back to the common .git dir.
+	//nolint:gosec // G304: Reading git commondir file from trusted local repo structure
 	commonDirData, err := os.ReadFile(filepath.Join(worktreeDir, "commondir"))
 	if err != nil {
 		return "", err
@@ -104,6 +106,7 @@ func currentBranchName() string {
 		headPath = filepath.Join(worktreeDir, "HEAD")
 	}
 
+	//nolint:gosec // G304: Reading git HEAD file from trusted local repo structure
 	headData, err := os.ReadFile(headPath)
 	if err != nil {
 		return "-"

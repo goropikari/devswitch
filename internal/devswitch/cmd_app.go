@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -75,8 +76,26 @@ func StartAppServer(params StartAppParams) (int, error) {
 		commandArgs = append(commandArgs, params.PortArg, strconv.Itoa(port))
 	}
 
+	// コマンドのパス解決と存在確認
+	exePath, err := exec.LookPath(params.Command)
+	if err != nil {
+		return 0, fmt.Errorf("command not found: %q", params.Command)
+	}
+
+	// 簡易的な禁止リスト
+	forbidden := map[string]bool{
+		"rm":       true,
+		"mkfs":     true,
+		"dd":       true,
+		"shutdown": true,
+		"reboot":   true,
+	}
+	if forbidden[filepath.Base(exePath)] {
+		return 0, fmt.Errorf("command %q is not allowed for security reasons", params.Command)
+	}
+
 	// 指定されたコマンドを空きポート付きで起動する。
-	c := exec.Command(command, commandArgs...)
+	c := exec.Command(exePath, commandArgs...)
 	env := os.Environ()
 	if params.PortEnv != "" {
 		env = append(env, fmt.Sprintf("%s=%d", params.PortEnv, port))
