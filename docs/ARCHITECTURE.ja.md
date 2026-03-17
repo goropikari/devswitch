@@ -31,7 +31,7 @@
 
 主要コマンド:
 
-- `proxy start [--port PORT] [-b HOST] [--provider PROVIDER]`: proxy を起動（デフォルトは daemon）
+- `proxy start [--port PORT] [-b HOST] [--provider PROVIDER] [--ui-port PORT] [--ui-bind HOST]`: proxy を起動（デフォルトは daemon）し、UI daemon も起動
 - `proxy stop`: proxy と登録済みアプリを全停止
 - `info`: proxy のステータス・ポート・プロバイダー・アクティブ backend を表示
 - `app start`: 空きポートでアプリを起動し登録
@@ -70,6 +70,8 @@ type ReverseProxy interface {
 | `devswitch_active`      | アクティブ対象 port                                     |
 | `proxy.pid`             | daemon proxy の PID                                     |
 | `proxy.log`             | proxy ログ（daemon 時のみ）                             |
+| `ui.pid`                | daemon UI の PID                                        |
+| `ui.log`                | UI ログ（daemon 時のみ）                                |
 | `proxy.port`            | `proxy start` で確定した listen port                    |
 | `proxy.provider`        | 使用中のプロバイダー名                                  |
 

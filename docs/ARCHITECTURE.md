@@ -30,7 +30,7 @@ Responsibilities:
 
 Key commands:
 
-- `proxy start [--port PORT] [-b HOST] [--provider PROVIDER]`: start proxy (daemon by default)
+- `proxy start [--port PORT] [-b HOST] [--provider PROVIDER] [--ui-port PORT] [--ui-bind HOST]`: start proxy (daemon by default) and launch UI daemon
 - `proxy stop`: stop proxy and all registered app processes
 - `info`: show proxy status, port, provider, active backend
 - `app start`: launch app on a free port and register it
@@ -68,6 +68,8 @@ All state files are under runtime tmp dir (`DEVSWITCH_TMPDIR` override possible)
 | `devswitch_active`      | active target port                                     |
 | `proxy.pid`             | daemon proxy PID                                       |
 | `proxy.log`             | proxy logs (daemon mode only)                          |
+| `ui.pid`                | daemon UI PID                                          |
+| `ui.log`                | UI logs (daemon mode only)                             |
 | `proxy.port`            | listen port persisted by `proxy start`                 |
 | `proxy.provider`        | current provider name                                  |
 

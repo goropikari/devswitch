@@ -61,7 +61,9 @@ go install github.com/goropikari/devswitch/cmd/devswitch@latest
 | Variable                   | Description                                   | Default                     | Affected commands            |
 | -------------------------- | --------------------------------------------- | --------------------------- | ---------------------------- |
 | `DEVSWITCH_PORT`           | proxy listen port                             | `9000`                      | proxy start, app start, info |
+| `DEVSWITCH_UI_PORT`        | UI listen port                                | `9001`                      | proxy start                  |
 | `DEVSWITCH_BIND_HOST`      | proxy bind host                               | `localhost`                 | proxy start, info            |
+| `DEVSWITCH_UI_BIND_HOST`   | UI bind host                                  | `localhost`                 | proxy start                  |
 | `DEVSWITCH_PROXY_PROVIDER` | proxy provider (`native`) | `native`                    | proxy start, info            |
 | `DEVSWITCH_TMPDIR`         | directory for state/log/config files          | auto-generated under `/tmp` | all commands                 |
 
@@ -84,6 +86,9 @@ DEVSWITCH_PORT=8080 devswitch proxy start
 
 # bind to all interfaces (for devcontainer → host access)
 devswitch proxy start -b 0.0.0.0
+
+# UI host/port (default: localhost:9001)
+devswitch proxy start --ui-bind 0.0.0.0 --ui-port 9010
 
 # stop
 devswitch proxy stop
@@ -264,6 +269,8 @@ All files are created under `<tmpdir>`:
 | `devswitch_active`      | active target port                           |
 | `proxy.pid`             | proxy daemon PID                             |
 | `proxy.log`             | proxy log (daemon mode only)                 |
+| `ui.pid`               | UI daemon PID                                 |
+| `ui.log`               | UI log (daemon mode only)                     |
 | `proxy.port`            | proxy listen port persisted by `proxy start` |
 | `proxy.provider`        | current provider name                        |
 

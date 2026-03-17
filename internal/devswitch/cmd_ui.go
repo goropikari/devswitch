@@ -17,7 +17,7 @@ import (
 var uiFS embed.FS
 
 // serveUI starts the embedded HTTP UI server on the specified port.
-func serveUI(port string) error {
+func serveUI(host, port string) error {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
@@ -40,10 +40,10 @@ func serveUI(port string) error {
 	http.HandleFunc("/api/start", handlePostStart)
 	http.HandleFunc("/api/register", handlePostRegister)
 
-	url := fmt.Sprintf("http://localhost:%s", port)
+	url := fmt.Sprintf("http://%s:%s", host, port)
 	fmt.Printf("UI started at %s\n", url)
 	server := &http.Server{
-		Addr:              ":" + port,
+		Addr:              host + ":" + port,
 		ReadHeaderTimeout: 3 * time.Second,
 	}
 	return server.ListenAndServe()
@@ -54,7 +54,7 @@ var uiServeCmd = &cobra.Command{
 	Hidden: true,
 	Short:  "start web ui",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return serveUI(uiPort)
+		return serveUI(uiBindHost, uiPort)
 	},
 }
 

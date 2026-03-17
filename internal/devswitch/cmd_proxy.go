@@ -3,7 +3,10 @@ package devswitch
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/goropikari/devswitch/internal/provider"
 	"github.com/spf13/cobra"
@@ -67,6 +70,11 @@ The provider can be selected with --provider or DEVSWITCH_PROXY_PROVIDER:
 
 		if proxyDaemon {
 			fmt.Println("proxy started in daemon mode", res.PID)
+			host := resolveBindHost()
+			if host == "" {
+				host = "localhost"
+			}
+			fmt.Printf("Proxy Listen: %s:%s\n", host, listenPort())
 			fmt.Println("proxy provider", proxyImpl.Name())
 			fmt.Println("proxy log", res.LogPath)
 		}
@@ -91,12 +99,46 @@ func startUIDaemon() error {
 		port = "9001"
 	}
 
-	// Start UI server in a goroutine (non-blocking daemon mode).
-	go func() {
-		if err := serveUI(port); err != nil {
-			fmt.Printf("UI server error: %v\n", err)
-		}
-	}()
+	bindHost := uiBindHost
+	if bindHost == "" {
+		bindHost = os.Getenv("DEVSWITCH_UI_BIND_HOST")
+	}
+	if bindHost == "" {
+		bindHost = "localhost"
+	}
 
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve executable: %w", err)
+	}
+
+	//nolint:gosec // G204: Trusting os.Executable() to launch UI daemon
+	cmd := exec.Command(exe, "__ui-serve", "--port", port, "--bind", bindHost)
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+
+	logPath := uiLogFilePath()
+	//nolint:gosec // G304: logPath is internal and safe
+	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		return fmt.Errorf("open UI log file: %w", err)
+	}
+	// We do not close logFile here because it is attached to the child process.
+	// The file descriptor will be closed in the parent process when this function returns/cmd.Start() finishes?
+	// Actually, exec.Command duplicates the file descriptor. We should close it in parent after Start().
+	defer logFile.Close()
+
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start UI daemon: %w", err)
+	}
+
+	if err := os.WriteFile(uiPIDFilePath(), []byte(strconv.Itoa(cmd.Process.Pid)), 0600); err != nil {
+		logJSON("write UI pid file", fmt.Sprintf("pid=%d", cmd.Process.Pid), err)
+	}
+
+	fmt.Println("UI started in daemon mode", cmd.Process.Pid)
+	fmt.Printf("UI URL: http://%s:%s\n", bindHost, port)
 	return nil
 }
